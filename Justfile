@@ -13,7 +13,7 @@ GIT_REMOTE      := env_var_or_default("GIT_REMOTE", "origin")
 ENV_FILE        := env_var_or_default("ENV_FILE", ".env")
 ENV_DIST        := env_var_or_default("ENV_DIST", ".env-dist")
 
-APP          := "${APP}"
+APP          := "axum-dev"
 PROJECT_DIR  := ROOT / APP
 MANIFEST     := PROJECT_DIR / "Cargo.toml"
 CARGO_TOML   := MANIFEST
@@ -258,7 +258,7 @@ build-docker: _env_check
 # Serve the app with Traefik and ForwardAuth
 serve: _env_check build-docker
     ${DOCKER} run --rm -it \
-    --name ${APP} \
+    --name axum-dev \
     -v ${DOCKER_VOLUME}:/data \
     -e DATABASE_URL \
     -e LISTEN_IP \
@@ -269,17 +269,17 @@ serve: _env_check build-docker
     -e TRUSTED_HEADER_AUTH=true \
     -e TRUSTED_FORWARDED_FOR=true \
     -l traefik.enable=true \
-    -l traefik.http.routers.${APP}.rule=Host\(\`${TRAEFIK_HOST}\`\) \
-    -l traefik.http.routers.${APP}.entrypoints=websecure \
-    -l traefik.http.routers.${APP}.tls=true \
-    -l traefik.http.services.${APP}.loadbalancer.server.port=${LISTEN_PORT} \
-    -l traefik.http.routers.${APP}.middlewares=traefik-forward-auth@docker,header-authorization-group-${TRUSTED_HEADER_AUTH_GROUP}@file \
+    -l traefik.http.routers.axum-dev.rule=Host\(\`${TRAEFIK_HOST}\`\) \
+    -l traefik.http.routers.axum-dev.entrypoints=websecure \
+    -l traefik.http.routers.axum-dev.tls=true \
+    -l traefik.http.services.axum-dev.loadbalancer.server.port=${LISTEN_PORT} \
+    -l traefik.http.routers.axum-dev.middlewares=traefik-forward-auth@docker,header-authorization-group-${TRUSTED_HEADER_AUTH_GROUP}@file \
     ${DOCKER_IMAGE} serve
 
 # Serve the app by itself without Traefik
 serve-plain: _env_check build-docker
     ${DOCKER} run --rm -it \
-    --name ${APP} \
+    --name axum-dev \
     -v ${DOCKER_VOLUME}:/data \
     -p ${LISTEN_PORT}:${LISTEN_PORT} \
     -e DATABASE_URL \

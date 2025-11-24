@@ -1,105 +1,107 @@
-# rust-axum-template
+# axum-dev
 
-This is my [Axum](https://github.com/tokio-rs/axum) template for new
-Rust projects.
+[![Crates.io](https://img.shields.io/crates/v/axum-dev?color=blue
+)](https://crates.io/crates/axum-dev)
+[![Coverage](https://img.shields.io/badge/Coverage-Report-purple)](https://enigmacurry.github.io/axum-dev/coverage/master/)
 
-This is a fork of my
-[rust-cli-template](https://github.com/EnigmaCurry/rust-cli-template)
-and this will receive upstream changes from it.
 
-## Features
+## Run Docker container
 
- * [Just](https://github.com/casey/just) enabled project build
-   targets.
- * [Clap](https://docs.rs/clap/latest/clap/) CLI argument parser.
- * Bash / Fish / Zsh shell (tab)
-   [completion](https://docs.rs/clap_complete/latest/clap_complete/).
- * GitHub actions for tests and releases:
-   * Builds executables for multiple platforms.
-   * Builds Docker images for x86_64 and aarch64.
-   * Test coverage report published to GitHub pages.
-   * Publishing crates to crates.io (disabled by default, uncomment in
-   [release.yml](template/.github/workflows/release.yml)).
-
-## Use this template
-
- * [Create a new repository using this template](https://github.com/new?template_name=rust-axum-template&template_owner=EnigmaCurry).
- * The `Repository name` that you choose will also be used as your new app's name.
- * If you have enabled code coverage reports (it's on by default), go
-   to the GitHub repository `Settings` page:
-   * Find `Pages`.
-   * Find `Build and deployment`.
-   * Find `Source` and set it to `GitHub Actions`. (**Not** `Deploy
-     from a branch`)
-
-## Clone your new repository to your to your workstation.
+### To run the container standalone with plain HTTP (no TLS)
 
 ```
-## For example:
-
-git clone git@github.com:${USERNAME}/${REPOSITORY}.git \
-   ~/git/vendor/${USERNAME}/${REPOSITORY}
-
-cd ~/git/vendor/${USERNAME}/${REPOSITORY}
+docker run -d \
+    --name axum-dev \
+    -v my-app-data:/data \
+    -p 3000:3000 \
+    ghcr.io/enigmacurry/axum-dev \
+    serve \
+    --listen-ip 0.0.0.0 \
+    --listen-port 3000
 ```
 
-## Render the template
+Modify the name of the data volume (`my-app-data`) to your liking (but
+keep the same mount point `:/data`). `my-app-data` is a "named" Docker
+volume, as such, it will be created automatically by Docker. This
+volume is where the service's database will be permanently stored.
 
-After cloning the repository to your workstation, you must initialize
- it:
+Without a proxy in front, some features cannot be turned on:
 
-```
-./setup.sh
-```
+ - Trusted Header Auth will be disabled unless you use a proxy.
+ - Trusted IP address forwarding will be disabled unless you use a proxy.
 
-This will render the template files into the project root and then
-self-destruct this README.md and the template.
+### To run the container with Traefik proxy (with TLS)
 
-It will also build and run the initial tests. Importantly, this will
-also create the Cargo.lock file for the first time.
-
-## Configure the .env file
-
-```
-just config
-```
-
-This will copy the provided [.env-dist](template/.env-dist) to `.env`.
-You should edit the generated `.env` file by hand to configure your
-application.
-
-You can set an alternative `.env` file path by setting the `ENV_FILE`
-environment variable.
-
-## Run the program
+Run the container with Traefik Proxy and gain several advanced
+features via [Forward
+Authentication](https://doc.traefik.io/traefik/reference/routing-configuration/http/middlewares/forwardauth/).
+This config is a bit specific to how the header authorization is done
+in [d.rymcg.tech](https://github.com/EnigmaCurry/d.rymcg.tech). You
+may need to adapt this for other environments:
 
 ```
-just run [ARGS ...]
+## Double check these settings according to your environment:
+TRAEFIK_HOST=axum-dev.example.com
+TRAEFIK_PROXY=10.13.16.1
+TRUSTED_HEADER_NAME=X-Forwarded-User
+TRUSTED_FORWARDED_FOR_NAME=X-Forwarded-For
+TRAEFIK_ENTRYPOINT=websecure
+
+## These middleware allow only the 'admin' OAuth group access to the service:
+TRUSTED_HEADER_AUTH_MIDDLEWARE=traefik-forward-auth@docker,header-authorization-group-admin@file
+
+docker run -d \
+    --name axum-dev \
+    -v my-app-data:/data \
+    -e TRUSTED_PROXY=${TRAEFIK_PROXY} \
+    -e TRUSTED_HEADER_NAME=${TRUSTED_HEADER_NAME} \
+    -e TRUSTED_FORWARDED_FOR_NAME=${TRUSTED_FORWARDED_FOR_NAME} \
+    -e TRUSTED_HEADER_AUTH=true \
+    -e TRUSTED_FORWARDED_FOR=true \
+    -l traefik.enable=true \
+    -l traefik.http.routers.axum-dev.rule=Host\(\`${TRAEFIK_HOST}\`\) \
+    -l traefik.http.routers.axum-dev.entrypoints=${TRAEFIK_ENTRYPOINT} \
+    -l traefik.http.routers.axum-dev.tls=true \
+    -l traefik.http.services.axum-dev.loadbalancer.server.port=3000 \
+    -l traefik.http.routers.axum-dev.middlewares=${TRUSTED_HEADER_AUTH_MIDDLEWARE} \
+    ghcr.io/enigmacurry/axum-dev \
+    serve
 ```
 
-You can also run the binary directly by building manually (`just
-build`) and running the static binary
-`{{app_name}}/target/debug/{{app_name}}`.
+### Check the service
 
-## Commit the initial app source files
+The service should now be running.
 
-Once you've verified that the tests ran correctly, you can add all of
-the files the template generated, as well as the `Cargo.lock` file,
-into the git repository. Commit and push your changes:
+On standalone installs, it should be on port 3000. Open your browser
+to the domain name or IP address associated with your server:
+
+http://axum-dev.example.com:3000
+
+For Traefik installs, it should be on port 443, and you must use the
+same domain name that was configured for the Traefik route
+(`TRAEFIK_HOST`).
+
+To view the container status and and its logs:
 
 ```
-## For example:
+docker ps -f name=axum-dev
 
-git add .
-git commit -m "init"
-git push
+docker logs axum-dev
 ```
 
-You're now ready to start developing your application.
+## Install
 
-## Releasing your app
+If you don't want to run the Docker container, you can install the
+binary directly:
 
-See [DEVELOPMENT.md](template/DEVELOPMENT.md) for instructions on the
-release process, a copy of this file has been included in your new git
-repository's root.
- 
+[Download the latest release for your platform.](https://github.com/enigmacurry/axum-dev/releases)
+
+Or install via cargo ([crates.io/crates/axum-dev](https://crates.io/crates/axum-dev)):
+
+```
+cargo install axum-dev
+```
+
+## Development
+
+See [DEVELOPMENT.md](DEVELOPMENT.md)

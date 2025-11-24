@@ -13,7 +13,7 @@ RUN sqlx database create && sqlx migrate run && cargo build --release --locked
 
 # ---- Runtime -------------------------------------------------
 FROM debian:trixie-slim AS runtime
-LABEL org.opencontainers.image.source="https://github.com/${GIT_USERNAME}/${APP}"
+LABEL org.opencontainers.image.source="https://github.com/enigmacurry/axum-dev"
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates coreutils && \
     rm -rf /var/lib/apt/lists/*
@@ -24,7 +24,7 @@ RUN groupadd --gid "$GID" "$USER" \
              --create-home \
              --shell /usr/sbin/nologin \
              "$USER"
-COPY --from=builder /app/target/release/${APP} /usr/local/bin/${APP}
+COPY --from=builder /app/target/release/axum-dev /usr/local/bin/axum-dev
 
 RUN mkdir /data && chown ${USER} /data
 VOLUME /data
@@ -32,4 +32,4 @@ ENV DATABASE_URL=sqlite:///data/data.db LISTEN_IP=0.0.0.0 LISTEN_PORT=3000
 
 USER $USER
 
-ENTRYPOINT ["${APP}"]
+ENTRYPOINT ["axum-dev"]
