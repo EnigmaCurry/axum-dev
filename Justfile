@@ -24,8 +24,11 @@ DOCKER       := env_var_or_default("DOCKER", "docker")
 DOCKER_IMAGE := env_var_or_default("DOCKER_IMAGE", "rust-axum-template")
 DOCKER_VOLUME := env_var_or_default("DOCKER_VOLUME", "rust-axum-template")
 
+## Local database path (NOT used by docker)
+DATABASE_PATH := env_var_or_default("DATABASE_PATH", "data.db")
+DATABASE_URL := "sqlite://" + DATABASE_PATH
+
 ### Container environment :::
-DATABASE_URL := env_var_or_default("DATABASE_URL", "sqlite:data.db")
 LISTEN_IP   := env_var_or_default("LISTEN_IP", "0.0.0.0")
 LISTEN_PORT := env_var_or_default("LISTEN_PORT", "3000")
 TRAEFIK_HOST := env_var_or_default("TRAEFIK_HOST", "change-me.example.com")
@@ -289,9 +292,9 @@ serve-plain: _env_check build-docker
 
 # Apply database migrations
 migrate: _env_check
-    echo DATABASE_URL=${DATABASE_URL}
-    cd {{PROJECT_DIR}} && sqlx database create
-    cd {{PROJECT_DIR}} && sqlx migrate run
+    cd {{PROJECT_DIR}} && \
+    sqlx database create && \
+    sqlx migrate run
 
-test_data: migrate
-    cd {{APP}} && sqlite3 data.db < test_data/test_users.sql
+sqlite:
+    cd {{APP}} && sqlite3 {{DATABASE_PATH}}

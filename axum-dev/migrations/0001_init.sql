@@ -79,7 +79,7 @@ VALUES (
     'root',                        -- username
     1,                             -- is_registered
     (SELECT id FROM signup_methods WHERE code = 'admin'),
-    'active'
+    'disabled'
 );
 
 
