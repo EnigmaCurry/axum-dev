@@ -25,7 +25,7 @@ DOCKER_IMAGE := env_var_or_default("DOCKER_IMAGE", "rust-axum-template")
 DOCKER_VOLUME := env_var_or_default("DOCKER_VOLUME", "rust-axum-template")
 
 ### Container environment :::
-DATABASE_URL := env_var_or_default("DATABASE_URL", "sqlite:///data/data.db")
+DATABASE_URL := env_var_or_default("DATABASE_URL", "sqlite:data.db")
 LISTEN_IP   := env_var_or_default("LISTEN_IP", "0.0.0.0")
 LISTEN_PORT := env_var_or_default("LISTEN_PORT", "3000")
 TRAEFIK_HOST := env_var_or_default("TRAEFIK_HOST", "change-me.example.com")
@@ -260,7 +260,6 @@ serve: _env_check build-docker
     ${DOCKER} run --rm -it \
     --name axum-dev \
     -v ${DOCKER_VOLUME}:/data \
-    -e DATABASE_URL \
     -e LISTEN_IP \
     -e LISTEN_PORT \
     -e TRUSTED_PROXY \
@@ -282,7 +281,6 @@ serve-plain: _env_check build-docker
     --name axum-dev \
     -v ${DOCKER_VOLUME}:/data \
     -p ${LISTEN_PORT}:${LISTEN_PORT} \
-    -e DATABASE_URL \
     -e LISTEN_IP \
     -e LISTEN_PORT \
     -e TRUSTED_HEADER_AUTH=false \
@@ -294,3 +292,6 @@ migrate: _env_check
     echo DATABASE_URL=${DATABASE_URL}
     cd {{PROJECT_DIR}} && sqlx database create
     cd {{PROJECT_DIR}} && sqlx migrate run
+
+test_data: migrate
+    cd {{APP}} && sqlite3 data.db < test_data/test_users.sql

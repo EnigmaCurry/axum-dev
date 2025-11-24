@@ -3,3 +3,4 @@
 **/*.profraw
 **/*.profdata
 **/.env*
+**/*.db
