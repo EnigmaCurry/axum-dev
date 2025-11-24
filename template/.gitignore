@@ -1,0 +1,5 @@
+**/target
+**/_test
+**/*.profraw
+**/*.profdata
+**/.env*
