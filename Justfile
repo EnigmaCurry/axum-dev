@@ -285,6 +285,7 @@ serve-plain: _env_check build-docker
     --name axum-dev \
     -v ${DOCKER_VOLUME}:/data \
     -p ${LISTEN_PORT}:${LISTEN_PORT} \
+    -e SESSION_SECURE=false \
     -e RUST_LOG \
     -e LISTEN_IP \
     -e LISTEN_PORT \

@@ -29,7 +29,7 @@ COPY --from=builder /app/target/release/axum-dev /usr/local/bin/axum-dev
 
 RUN mkdir /data && chown ${USER} /data
 VOLUME /data
-ENV DATABASE_URL=sqlite:///data/data.db?mode=rwc LISTEN_IP=0.0.0.0 LISTEN_PORT=3000
+ENV DATABASE_URL=sqlite:///data/data.db LISTEN_IP=0.0.0.0 LISTEN_PORT=3000
 
 USER $USER
 

@@ -52,6 +52,38 @@ pub fn app() -> Command {
                         .help("Port to bind (or set LISTEN_PORT)"),
                 )
                 .arg(
+                    Arg::new("database_url")
+                        .long("database-url")
+                        .value_name("URL")
+                        .env("DATABASE_URL")
+                        .default_value("sqlite:data.db")
+                        .help("Database URL for sqlx (or set DATABASE_URL)"),
+                )
+                .arg(
+                    Arg::new("session_secure")
+                        .long("session-secure")
+                        .value_name("BOOL")
+                        .env("SESSION_SECURE")
+                        .value_parser(value_parser!(bool))
+                        .default_value("true")
+                        .help(
+                            "Whether to set the Secure flag on session cookies \
+                             (true/false or set SESSION_SECURE=true/false)",
+                        ),
+                )
+                .arg(
+                    Arg::new("session_expiry_seconds")
+                        .long("session-expiry-seconds")
+                        .value_name("SECONDS")
+                        .env("SESSION_EXPIRY_SECONDS")
+                        .value_parser(value_parser!(u64))
+                        .default_value("604800") // 7 days
+                        .help(
+                            "Session inactivity timeout in seconds \
+                             (default 604800 = 7 days, or set SESSION_EXPIRY_SECONDS)",
+                        ),
+                )
+                .arg(
                     Arg::new("trusted_header_auth")
                         .long("trusted-header-auth")
                         .env("TRUSTED_HEADER_AUTH")

@@ -16,10 +16,12 @@ mod routes;
 mod server;
 
 use prelude::*;
+use tower_sessions_sqlx_store::SqliteStore;
 
 #[derive(Clone)]
 pub struct AppState {
     pub db: SqlitePool,
+    pub session_store: SqliteStore,
 }
 
 fn init_tracing() {
@@ -165,6 +167,18 @@ fn serve<W1: Write, W2: Write>(sub_matches: &clap::ArgMatches, out: &mut W1, err
         }
     };
 
+    // ---- New: DB + session config from CLI/env ----
+    let db_url = sub_matches
+        .get_one::<String>("database_url")
+        .cloned()
+        .unwrap();
+
+    let session_secure = *sub_matches.get_one::<bool>("session_secure").unwrap();
+
+    let session_expiry_secs = *sub_matches
+        .get_one::<u64>("session_expiry_seconds")
+        .unwrap();
+
     // ---- Trusted USER header options ----
     let enabled = sub_matches.get_flag("trusted_header_auth");
 
@@ -238,7 +252,14 @@ fn serve<W1: Write, W2: Write>(sub_matches: &clap::ArgMatches, out: &mut W1, err
         }
     };
 
-    match rt.block_on(server::run(addr, auth_cfg, fwd_cfg)) {
+    match rt.block_on(server::run(
+        addr,
+        auth_cfg,
+        fwd_cfg,
+        db_url,
+        session_secure,
+        session_expiry_secs,
+    )) {
         Ok(()) => 0,
         Err(e) => {
             let _ = writeln!(err, "Server error: {e:#}");
