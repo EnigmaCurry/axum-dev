@@ -1,6 +1,9 @@
 use std::net::SocketAddr;
 
-use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
+use sqlx::{
+    sqlite::{SqliteConnectOptions, SqlitePoolOptions},
+    ConnectOptions, SqlitePool,
+};
 
 use crate::{
     middleware::{TrustedForwardedForConfig, TrustedHeaderAuthConfig},
@@ -17,6 +20,14 @@ pub async fn run(
 ) -> anyhow::Result<()> {
     let db_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:data.db".to_string());
     info!("DATABASE_URL={db_url}");
+    let connect_opts = SqliteConnectOptions::from_str(&db_url)?
+        // log every statement at DEBUG (or TRACE) level
+        .log_statements(tracing::log::LevelFilter::Debug)
+        // optionally log slow statements:
+        .log_slow_statements(
+            tracing::log::LevelFilter::Warn,
+            std::time::Duration::from_millis(100),
+        );
     let db: SqlitePool = SqlitePoolOptions::new()
         .max_connections(5)
         .connect(&db_url)
@@ -31,6 +42,7 @@ pub async fn run(
         .await?;
 
     // Run migrations
+    info!("Running migration now ...");
     sqlx::migrate!().run(&db).await?;
 
     // Shared state

@@ -2,7 +2,7 @@ use crate::models::ids::{IdentityProviderId, SignupMethodId, UserId};
 use crate::models::user_status::UserStatus;
 use serde::{Deserialize, Serialize};
 use sqlx::types::chrono::NaiveDateTime;
-use sqlx::{FromRow, SqlitePool};
+use sqlx::{Error, FromRow, SqlitePool};
 
 #[derive(Debug, Clone, FromRow)]
 pub struct User {
@@ -54,7 +54,7 @@ pub async fn insert_user(pool: &SqlitePool, new_user: CreateUser) -> sqlx::Resul
 
     sqlx::query_as::<_, User>(
         r#"
-        INSERT INTO users (
+        INSERT INTO [user] (
             id,
             identity_provider_id,
             external_id,
@@ -78,11 +78,41 @@ pub async fn insert_user(pool: &SqlitePool, new_user: CreateUser) -> sqlx::Resul
             updated_at
         "#,
     )
-    .bind(id)
+    .bind(id.0.to_string())
     .bind(new_user.identity_provider_id)
     .bind(new_user.external_id)
     .bind(new_user.email)
     .bind(new_user.username)
     .fetch_one(pool)
+    .await
+}
+
+/// Look up a user by its primary‑key.
+///
+/// Returns:
+///   * `Ok(Some(user))` – the row exists.
+///   * `Ok(None)`       – no row with that `id`.
+///   * `Err(e)`         – any DB‑level error (connection failure, malformed query, …).
+pub async fn select_user(pool: &SqlitePool, id: UserId) -> Result<Option<User>, Error> {
+    sqlx::query_as::<_, User>(
+        r#"
+        SELECT
+            id,
+            identity_provider_id,
+            external_id,
+            email,
+            username,
+            is_registered,
+            registered_at,
+            signup_method_id,
+            status,
+            created_at,
+            updated_at
+        FROM [user]
+        WHERE id = ?1
+        "#,
+    )
+    .bind(id.0.to_string())
+    .fetch_optional(pool)
     .await
 }

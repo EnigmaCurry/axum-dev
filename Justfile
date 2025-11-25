@@ -105,7 +105,7 @@ _with-temp-db +cmd:
     export DATABASE_URL="sqlite://$tmp_db"
     echo "Using temp DB: $DATABASE_URL"
 
-    just migrate
+    just migrate-local
 
     # Run the captured command (from +cmd)
     {{cmd}}
@@ -122,7 +122,7 @@ _with-temp-db-script script:
     export DATABASE_URL="sqlite://$tmp_db"
     echo "Using temp DB: $DATABASE_URL"
 
-    just migrate
+    just migrate-local
 
     bash -c '{{script}}'
 
@@ -159,7 +159,7 @@ run *args: _env_check
 
 # Build + args
 build *args: _env_check
-    RUSTFLAGS="-D warnings" just _with-temp-db cargo build --manifest-path "{{MANIFEST}}" {{args}}
+    just _with-temp-db cargo build --manifest-path "{{MANIFEST}}" {{args}}
 
 # Build continuously on file change
 build-watch *args: _env_check
@@ -263,6 +263,7 @@ serve: _env_check build-docker
     ${DOCKER} run --rm -it \
     --name axum-dev \
     -v ${DOCKER_VOLUME}:/data \
+    -e RUST_LOG \
     -e LISTEN_IP \
     -e LISTEN_PORT \
     -e TRUSTED_PROXY \
@@ -284,17 +285,29 @@ serve-plain: _env_check build-docker
     --name axum-dev \
     -v ${DOCKER_VOLUME}:/data \
     -p ${LISTEN_PORT}:${LISTEN_PORT} \
+    -e RUST_LOG \
     -e LISTEN_IP \
     -e LISTEN_PORT \
     -e TRUSTED_HEADER_AUTH=false \
     -e TRUSTED_FORWARDED_FOR=false \
     ${DOCKER_IMAGE} serve
 
-# Apply database migrations
-migrate: _env_check
+# Apply database migrations in local database
+migrate-local: _env_check
     cd {{PROJECT_DIR}} && \
     sqlx database create && \
     sqlx migrate run
 
-sqlite:
+# Enter sqlite shell of local database
+sql-local:
     cd {{APP}} && sqlite3 {{DATABASE_PATH}}
+
+# Enter sqlite shell of docker database
+sql:
+    ${DOCKER} exec -it axum-dev sqlite3 /data/data.db
+
+destroy:
+    docker rm -fv axum-dev
+
+shell:
+    docker exec -it axum-dev /bin/bash

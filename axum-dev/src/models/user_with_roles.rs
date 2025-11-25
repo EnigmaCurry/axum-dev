@@ -21,7 +21,7 @@ pub async fn get_user_with_roles(
 ) -> sqlx::Result<Option<UserWithRoles>> {
     // load user
     let user = match sqlx::query_as::<_, User>(r#"SELECT * FROM users WHERE id = ?1"#)
-        .bind(id)
+        .bind(id.0.to_string())
         .fetch_optional(pool)
         .await?
     {
@@ -33,12 +33,12 @@ pub async fn get_user_with_roles(
     let role_rows: Vec<RoleRow> = sqlx::query_as::<_, RoleRow>(
         r#"
         SELECT r.id, r.name
-        FROM roles r
+        FROM [role] r
         JOIN user_roles ur ON ur.role_id = r.id
         WHERE ur.user_id = ?1
         "#,
     )
-    .bind(id)
+    .bind(id.0.to_string())
     .fetch_all(pool)
     .await?;
 

@@ -4,6 +4,8 @@ use sqlx::SqlitePool;
 use std::env;
 use std::io::Write;
 use std::net::{IpAddr, SocketAddr};
+use tracing_subscriber::fmt::format::Pretty;
+use tracing_subscriber::{fmt, EnvFilter};
 
 mod cli;
 mod errors;
@@ -20,7 +22,15 @@ pub struct AppState {
     pub db: SqlitePool,
 }
 
+fn init_tracing() {
+    fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .pretty()
+        .init();
+}
+
 fn main() {
+    init_tracing();
     let code = run_cli(
         std::env::args_os(),
         &mut std::io::stdout(),
@@ -190,7 +200,7 @@ fn serve<W1: Write, W2: Write>(sub_matches: &clap::ArgMatches, out: &mut W1, err
     let fwd_enabled = sub_matches.get_flag("trusted_forwarded_for");
 
     let fwd_header_str = sub_matches
-        .get_one::<String>("forwarded_for_header_name")
+        .get_one::<String>("trusted_forwarded_for_name")
         .map(|s| s.as_str())
         .unwrap_or("X-Forwarded-For");
 

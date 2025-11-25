@@ -32,6 +32,8 @@ tempfile = "3.23.0"
 tokio = { version = "1.48.0", features = ["rt-multi-thread", "macros", "process", "fs", "signal"] }
 tower = "0.5.2"
 tower-http = { version = "0.6.6", features = ["trace"] }
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 uuid = { version = "1.18.1", features = ["serde", "v4"] }
 
 [dev-dependencies]

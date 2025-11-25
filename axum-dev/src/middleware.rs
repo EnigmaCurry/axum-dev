@@ -55,7 +55,7 @@ pub struct AuthenticatedUser(#[allow(dead_code)] pub String);
 
 /// Client IP extracted from trusted forwarded-for header.
 #[derive(Clone, Debug)]
-pub struct ClientIp(#[allow(dead_code)] pub IpAddr);
+pub struct ClientIp(#[allow(dead_code)] pub Option<IpAddr>);
 
 /// Middleware that enforces trusted-header auth for user/email.
 ///
@@ -116,46 +116,52 @@ pub async fn trusted_header_auth(
     next.run(req).await
 }
 
-/// Middleware that enforces trusted forwarded-for header for client IP.
-///
-/// Rules:
-/// - If disabled: 403 if header present.
-/// - If enabled: only trusted proxy may send it (403 otherwise).
-/// - If trusted proxy sends it, parse first IP and store as ClientIp.
+/// Insert the `ClientIp` extension **exactly once** per request.
+/// When the feature is disabled we always insert `ClientIp(None)`.
 pub async fn trusted_forwarded_for(
     State(cfg): State<TrustedForwardedForConfig>,
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
     mut req: Request<Body>,
     next: Next,
 ) -> Response {
+    // ------------------------------------------------------------------------
+    // 1️⃣  Disabled mode – *never* expose a client IP.
+    // ------------------------------------------------------------------------
     if !cfg.enabled {
+        // If a caller tries to cheat by sending the header, reject outright.
         if req.headers().contains_key(&cfg.header_name) {
-            warn!(
-                "trusted forwarded-for disabled, but header '{}' was present from peer {}",
+            tracing::warn!(
+                "trusted forwarded‑for disabled, but header '{}' was present from peer {}",
                 cfg.header_name,
                 peer.ip()
             );
             return StatusCode::FORBIDDEN.into_response();
         }
+
+        // Explicitly hide the peer address.
+        req.extensions_mut().insert(ClientIp(None));
         return next.run(req).await;
     }
 
-    // Enabled mode: if header is present from untrusted peer, reject.
-    if peer.ip() != cfg.trusted_proxy {
-        if req.headers().contains_key(&cfg.header_name) {
-            warn!(
-                "trusted forwarded-for: rejecting spoofed header '{}' from untrusted peer {} (expected {})",
-                cfg.header_name,
-                peer.ip(),
-                cfg.trusted_proxy
-            );
-            return StatusCode::FORBIDDEN.into_response();
-        }
-        return next.run(req).await;
+    // ------------------------------------------------------------------------
+    // 2️⃣  Enabled mode – sanity‑check the sender.
+    // ------------------------------------------------------------------------
+    // Header sent by *any* untrusted source → reject.
+    if peer.ip() != cfg.trusted_proxy && req.headers().contains_key(&cfg.header_name) {
+        tracing::warn!(
+            "trusted forwarded‑for: rejecting spoofed header '{}' from untrusted peer {} (expected {})",
+            cfg.header_name,
+            peer.ip(),
+            cfg.trusted_proxy
+        );
+        return StatusCode::FORBIDDEN.into_response();
     }
 
-    // Trusted proxy: if header present, parse it.
+    // ------------------------------------------------------------------------
+    // 3️⃣  Trusted proxy – try to parse the header (if any).
+    // ------------------------------------------------------------------------
     let client_ip: Option<IpAddr> = {
+        // Grab the raw header value, if present.
         let raw = req
             .headers()
             .get(&cfg.header_name)
@@ -163,18 +169,38 @@ pub async fn trusted_forwarded_for(
             .map(|s| s.trim())
             .filter(|s| !s.is_empty());
 
-        raw.and_then(|v| {
-            let first = v.split(',').next().unwrap().trim();
+        // Extract the *first* comma‑separated entry and attempt to turn it into an IpAddr.
+        raw.and_then(|value| {
+            let first = value.split(',').next().unwrap().trim();
             IpAddr::from_str(first).ok()
         })
     };
 
-    if let Some(ip) = client_ip {
-        req.extensions_mut().insert(ClientIp(ip));
-    } else if req.headers().contains_key(&cfg.header_name) {
-        // Header existed but was unparsable.
-        return StatusCode::BAD_REQUEST.into_response();
+    // --------------------------------------------------------------
+    // 4️⃣  Store the result in the request extensions.
+    // --------------------------------------------------------------
+    match client_ip {
+        Some(ip) => {
+            // Valid header → we know the original client IP.
+            req.extensions_mut().insert(ClientIp(Some(ip)));
+        }
+        None => {
+            // Header absent → we explicitly *hide* the IP.
+            // Header present but unparsable → 400 Bad Request.
+            if req.headers().contains_key(&cfg.header_name) {
+                tracing::debug!(
+                    "trusted forwarded‑for: header '{}' from trusted proxy {} could not be parsed",
+                    cfg.header_name,
+                    peer.ip()
+                );
+                return StatusCode::BAD_REQUEST.into_response();
+            }
+            req.extensions_mut().insert(ClientIp(None));
+        }
     }
 
+    // --------------------------------------------------------------
+    // 5️⃣  Continue down the stack.
+    // --------------------------------------------------------------
     next.run(req).await
 }

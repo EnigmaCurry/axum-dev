@@ -1,5 +1,14 @@
-use crate::models::user::insert_user;
-use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
+use crate::models::{
+    ids::UserId,
+    user::{self, insert_user},
+};
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    routing::{get, post},
+    Json, Router,
+};
+use uuid::Uuid;
 
 use crate::{
     models::user::{CreateUser, PublicUser},
@@ -7,8 +16,9 @@ use crate::{
 };
 
 pub fn router() -> Router<AppState> {
-    Router::<AppState>::new().route("/", post(create_user))
-    //.route("/{user_id}", get(get_user))
+    Router::<AppState>::new()
+        .route("/", post(create_user))
+        .route("/{user_id}", get(get_user))
 }
 
 pub async fn create_user(
@@ -23,4 +33,26 @@ pub async fn create_user(
     })?;
 
     Ok((StatusCode::CREATED, Json(user.into())))
+}
+
+pub async fn get_user(
+    State(state): State<AppState>,
+    Path(user_id): Path<UserId>,
+) -> Result<(StatusCode, Json<PublicUser>), (StatusCode, String)> {
+    let maybe_user = user::select_user(&state.db, user_id.clone())
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("database query error: {e}"),
+            )
+        })?;
+
+    match maybe_user {
+        Some(user) => Ok((StatusCode::OK, Json(user.into()))),
+        None => Err((
+            StatusCode::NOT_FOUND,
+            format!("user with id {user_id:?} not found"),
+        )),
+    }
 }
