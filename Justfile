@@ -271,6 +271,8 @@ serve: _env_check build-docker
     -e TRUSTED_FORWARDED_FOR_NAME \
     -e TRUSTED_HEADER_AUTH=true \
     -e TRUSTED_FORWARDED_FOR=true \
+    -e SESSION_EXPIRY_SECONDS \
+    -e SESSION_CHECK_SECONDS \
     -l traefik.enable=true \
     -l traefik.http.routers.axum-dev.rule=Host\(\`${TRAEFIK_HOST}\`\) \
     -l traefik.http.routers.axum-dev.entrypoints=websecure \
@@ -289,6 +291,8 @@ serve-plain: _env_check build-docker
     -e RUST_LOG \
     -e LISTEN_IP \
     -e LISTEN_PORT \
+    -e SESSION_EXPIRY_SECONDS \
+    -e SESSION_CHECK_SECONDS \
     -e TRUSTED_HEADER_AUTH=false \
     -e TRUSTED_FORWARDED_FOR=false \
     ${DOCKER_IMAGE} serve

@@ -72,6 +72,18 @@ pub fn app() -> Command {
                         ),
                 )
                 .arg(
+                    Arg::new("session_check_seconds")
+                        .long("session-check-seconds")
+                        .value_name("SECONDS")
+                        .env("SESSION_CHECK_SECONDS")
+                        .value_parser(value_parser!(u64))
+                        .default_value("60")
+                        .help(
+                            "Session inactivity timeout in seconds \
+                             (default every 60 seconds, or set SESSION_CHECK_SECONDS)",
+                        ),
+                )
+                .arg(
                     Arg::new("session_expiry_seconds")
                         .long("session-expiry-seconds")
                         .value_name("SECONDS")

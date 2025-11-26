@@ -43,7 +43,7 @@ pub async fn run(
     let deletion_task = tokio::task::spawn(
         session_store
             .clone()
-            .continuously_delete_expired(core::time::Duration::from_secs(120)),
+            .continuously_delete_expired(core::time::Duration::from_secs(60)),
     );
 
     // Convert the CLI/env-specified seconds into a cookie::time::Duration
