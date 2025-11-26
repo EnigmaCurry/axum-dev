@@ -26,6 +26,7 @@ pub async fn run(
     db_url: String,
     session_secure: bool,
     session_expiry_secs: u64,
+    session_check_secs: u64,
 ) -> anyhow::Result<()> {
     // Database pool and migration
     let connect_opts = SqliteConnectOptions::from_str(&db_url)?
@@ -48,7 +49,7 @@ pub async fn run(
     let deletion_task = tokio::task::spawn(
         session_store
             .clone()
-            .continuously_delete_expired(core::time::Duration::from_secs(60)),
+            .continuously_delete_expired(core::time::Duration::from_secs(session_check_secs)),
     );
 
     // Convert the CLI/env-specified seconds into a cookie::time::Duration

@@ -151,6 +151,7 @@ fn serve<W1: Write, W2: Write>(
     let session_expiry_secs = *sub_matches
         .get_one::<u64>("session_expiry_seconds")
         .unwrap();
+    let session_check_secs = *sub_matches.get_one::<u64>("session_check_seconds").unwrap();
 
     // ---- Trusted USER header options ----
     let enabled = sub_matches.get_flag("trusted_header_auth");
@@ -232,6 +233,7 @@ fn serve<W1: Write, W2: Write>(
         db_url,
         session_secure,
         session_expiry_secs,
+        session_check_secs,
     )) {
         Ok(()) => return Ok(()),
         Err(e) => {
