@@ -2,21 +2,17 @@ use std::{
     collections::BTreeMap,
     net::{IpAddr, SocketAddr},
 };
-use tower_sessions::Session;
-
-const WHOAMI_VISIT_COUNT_KEY: &str = "whoami_visit_count";
 
 use axum::{
-    extract::{ConnectInfo, Extension, State},
+    extract::{ConnectInfo, Extension},
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
     routing::get,
-    Json, // <-- JSON extractor/serializer
-    Router,
+    Json, Router,
 };
+use serde::Serialize;
 
-use serde::Serialize; // <-- for the response struct
-
+use crate::middleware::user_session::UserSession;
 use crate::prelude::*;
 
 /// All routes that live under `/hello`.
@@ -24,74 +20,71 @@ pub fn router() -> Router<AppState> {
     Router::<AppState>::new().route("/", get(whoami_json))
 }
 
+/// The subset of session data we want to expose publicly.
+#[derive(Debug, Serialize)]
+struct SessionPayload {
+    pub visit_count: u64,
+    pub csrf_token: String,
+}
+
 /// The shape of the JSON we send back.
-///
-/// Fields are deliberately named the same as in the original plain‑text
-/// version so you can recognise them easily.
 #[derive(Debug, Serialize)]
 struct ResponsePayload {
-    /// Authenticated user e‑mail (or the placeholder string).
-    user: String,
+    /// Authenticated external user id.
+    external_user_id: Option<String>,
     /// The raw TCP peer address (always present).
     peer_ip: String,
-    /// The *client* address that the trusted‑proxy middleware stored.
+    /// The *client* address that the trusted-proxy middleware stored.
     /// `null` means the request didn’t come through a trusted proxy (or the
     /// proxy didn’t supply a usable header).
-    client_ip: Option<String>,
+    forwarded_client_ip: Option<String>,
     /// All request headers as a map `header_name → header_value`.
-    headers: std::collections::BTreeMap<String, String>,
-    whoami_visit_count: u64,
+    headers: BTreeMap<String, String>,
+    /// Public session info.
+    session: SessionPayload,
 }
 
 /// Handler that returns a **JSON** payload instead of plain text.
-///
-
 async fn whoami_json(
     user: Option<Extension<ForwardAuthUser>>,
-    client_ip: Option<Extension<ForwardedClientIp>>,
+    forwarded_client_ip: Option<Extension<ForwardedClientIp>>,
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
-    State(state): State<AppState>,
-    session: Session,
+    user_session: UserSession,
 ) -> impl IntoResponse {
-    let email = match user {
-        Some(Extension(ForwardAuthUser(email))) => email,
-        None => "<unauthenticated>".to_string(),
+    let external_user_id = match user {
+        Some(Extension(ForwardAuthUser(id))) => Some(id),
+        None => None,
     };
 
-    let maybe_client_ip: Option<IpAddr> =
-        client_ip.and_then(|Extension(ForwardedClientIp(inner))| inner);
-    let client_ip_json: Option<String> = maybe_client_ip.map(|ip| ip.to_string());
+    let maybe_forwarded_client_ip: Option<IpAddr> =
+        forwarded_client_ip.and_then(|Extension(ForwardedClientIp(inner))| inner);
+    let forwarded_client_ip_json: Option<String> =
+        maybe_forwarded_client_ip.map(|ip| ip.to_string());
 
     // --- Reflect headers - except redact the session cookie
     let mut hdr_map: BTreeMap<String, String> = BTreeMap::new();
     for (name, value) in headers.iter() {
-        let val_str;
-        if name == "cookie" {
-            val_str = "<redacted>";
+        let val_str = if name == "cookie" {
+            "<redacted>"
         } else {
-            val_str = value.to_str().unwrap_or("<non-utf8>");
-        }
+            value.to_str().unwrap_or("<non-utf8>")
+        };
         hdr_map.insert(name.as_str().to_string(), val_str.to_string());
     }
 
-    // --- Visit counter (per session / per browser login) ---
-    let current: u64 = session
-        .get(WHOAMI_VISIT_COUNT_KEY)
-        .await
-        .unwrap_or(None)
-        .unwrap_or(0);
-
-    // --- update session counter
-    let next = current.saturating_add(1);
-    let _ = session.insert(WHOAMI_VISIT_COUNT_KEY, next).await;
+    // Build the public session payload from the internal UserSession.
+    let session = SessionPayload {
+        visit_count: user_session.visit_count,
+        csrf_token: user_session.csrf_token.clone(),
+    };
 
     let payload = ResponsePayload {
-        user: email,
+        external_user_id,
         peer_ip: peer.ip().to_string(),
-        client_ip: client_ip_json,
+        forwarded_client_ip: forwarded_client_ip_json,
         headers: hdr_map,
-        whoami_visit_count: next,
+        session,
     };
 
     (StatusCode::OK, Json(payload))

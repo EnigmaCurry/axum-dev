@@ -2,7 +2,9 @@ use axum::{http::StatusCode, middleware, routing::get, Router};
 use tower_http::trace::TraceLayer;
 
 use crate::{
-    middleware::{trusted_forwarded_for, trusted_header_auth},
+    middleware::{
+        trusted_forwarded_for, trusted_header_auth, user_session::user_session_middleware,
+    },
     AppState,
 };
 
@@ -24,8 +26,6 @@ pub fn router(
         .fallback(fallback_404)
         .layer(TraceLayer::new_for_http());
 
-    // Always install both middlewares; they self-disable and
-    // reject spoofing when disabled.
     app.layer(middleware::from_fn_with_state(
         fwd_cfg,
         trusted_forwarded_for::trusted_forwarded_for,
@@ -34,6 +34,7 @@ pub fn router(
         user_cfg,
         trusted_header_auth::trusted_header_auth,
     ))
+    .layer(middleware::from_fn(user_session_middleware))
 }
 
 async fn root() -> &'static str {
