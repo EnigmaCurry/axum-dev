@@ -8,7 +8,6 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use uuid::Uuid;
 
 use crate::models::user::{CreateUser, PublicUser};
 use crate::prelude::*;

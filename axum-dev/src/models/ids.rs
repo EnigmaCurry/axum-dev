@@ -1,7 +1,6 @@
 // src/models/ids.rs
 use serde::{Deserialize, Serialize};
 use sqlx::Type;
-use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Type, Serialize, Deserialize)]
 #[sqlx(transparent)]
