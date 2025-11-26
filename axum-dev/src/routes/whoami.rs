@@ -17,10 +17,8 @@ use axum::{
 
 use serde::Serialize; // <-- for the response struct
 
-use crate::{
-    middleware::{AuthenticatedUser, ClientIp},
-    AppState,
-};
+use crate::middleware::{AuthenticatedUser, ClientIp};
+use crate::prelude::*;
 
 /// All routes that live under `/hello`.
 pub fn router() -> Router<AppState> {

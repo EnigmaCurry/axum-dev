@@ -10,10 +10,8 @@ use axum::{
 };
 use uuid::Uuid;
 
-use crate::{
-    models::user::{CreateUser, PublicUser},
-    AppState,
-};
+use crate::models::user::{CreateUser, PublicUser};
+use crate::prelude::*;
 
 pub fn router() -> Router<AppState> {
     Router::<AppState>::new()

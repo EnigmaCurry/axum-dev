@@ -10,8 +10,13 @@ use crate::{
     middleware::{TrustedForwardedForConfig, TrustedHeaderAuthConfig},
     prelude::*,
     routes::router,
-    AppState,
 };
+
+#[derive(Clone)]
+pub struct AppState {
+    pub db: SqlitePool,
+    pub session_store: SqliteStore,
+}
 
 /// Run the HTTP server until shutdown.
 pub async fn run(

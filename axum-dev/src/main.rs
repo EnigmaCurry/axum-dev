@@ -18,12 +18,6 @@ mod server;
 use prelude::*;
 use tower_sessions_sqlx_store::SqliteStore;
 
-#[derive(Clone)]
-pub struct AppState {
-    pub db: SqlitePool,
-    pub session_store: SqliteStore,
-}
-
 fn init_tracing() {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
