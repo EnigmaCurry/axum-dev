@@ -1,7 +1,6 @@
 use axum::http::HeaderName;
 use clap_complete::shells::Shell;
 use errors::CliError;
-use sqlx::SqlitePool;
 use std::env;
 use std::io::Write;
 use std::net::{IpAddr, SocketAddr};
@@ -16,14 +15,6 @@ mod routes;
 mod server;
 
 use prelude::*;
-use tower_sessions_sqlx_store::SqliteStore;
-
-fn init_tracing() {
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .pretty()
-        .init();
-}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     init_tracing();
@@ -33,6 +24,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &mut std::io::stderr(),
     )?;
     Ok(())
+}
+
+fn init_tracing() {
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .pretty()
+        .init();
 }
 
 /// run_cli is the common entrypoint for both main and unit tests.
@@ -114,6 +112,7 @@ fn completions<W1: Write, W2: Write>(
             err,
             "  autoload -U compinit; compinit; source <({bin} completions zsh)"
         );
+        let _ = writeln!(err, "");
         Err(CliError::InvalidArgs("no shell argument".into()))
     }
 }
