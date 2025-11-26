@@ -133,7 +133,6 @@ fn serve<W1: Write, W2: Write>(
     let addr: SocketAddr = match addr_str.parse() {
         Ok(a) => a,
         Err(e) => {
-            let _ = writeln!(err,);
             return Err(CliError::InvalidArgs(format!(
                 "Invalid listen addr '{addr_str}': {e}"
             )));
@@ -179,10 +178,7 @@ fn serve<W1: Write, W2: Write>(
     };
 
     if enabled {
-        let _ = writeln!(
-            out,
-            "Trusted USER header enabled: header='{header_name_str}', trusted_proxy={trusted_proxy}"
-        );
+        info!("Trusted USER header enabled: header='{header_name_str}', trusted_proxy={trusted_proxy}");
     }
 
     // ---- Trusted FORWARDED-FOR (client IP) options ----
@@ -209,13 +205,10 @@ fn serve<W1: Write, W2: Write>(
     };
 
     if fwd_enabled {
-        let _ = writeln!(
-            out,
-            "Trusted FORWARDED-FOR enabled: header='{fwd_header_str}', trusted_proxy={trusted_proxy}"
-        );
+        info!("Trusted FORWARDED-FOR enabled: header='{fwd_header_str}', trusted_proxy={trusted_proxy}");
     }
 
-    let _ = writeln!(out, "Starting server on http://{addr}");
+    info!("Starting server on http://{addr}");
 
     let rt = match tokio::runtime::Runtime::new() {
         Ok(rt) => rt,
