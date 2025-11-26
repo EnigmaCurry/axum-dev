@@ -2,10 +2,7 @@ use axum::{http::StatusCode, middleware, routing::get, Router};
 use tower_http::trace::TraceLayer;
 
 use crate::{
-    middleware::{
-        trusted_forwarded_for, trusted_header_auth, TrustedForwardedForConfig,
-        TrustedHeaderAuthConfig,
-    },
+    middleware::{trusted_forwarded_for, trusted_header_auth},
     AppState,
 };
 
@@ -15,8 +12,8 @@ pub mod whoami;
 
 /// Build your Axum router. Keep this as a separate function so it’s testable.
 pub fn router(
-    user_cfg: TrustedHeaderAuthConfig,
-    fwd_cfg: TrustedForwardedForConfig,
+    user_cfg: trusted_header_auth::TrustedHeaderAuthConfig,
+    fwd_cfg: trusted_forwarded_for::TrustedForwardedForConfig,
 ) -> Router<AppState> {
     let app = Router::<AppState>::new()
         .route("/", get(root))
@@ -31,11 +28,11 @@ pub fn router(
     // reject spoofing when disabled.
     app.layer(middleware::from_fn_with_state(
         fwd_cfg,
-        trusted_forwarded_for,
+        trusted_forwarded_for::trusted_forwarded_for,
     ))
     .layer(middleware::from_fn_with_state(
         user_cfg,
-        trusted_header_auth,
+        trusted_header_auth::trusted_header_auth,
     ))
 }
 

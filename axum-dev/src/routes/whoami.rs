@@ -17,7 +17,6 @@ use axum::{
 
 use serde::Serialize; // <-- for the response struct
 
-use crate::middleware::{AuthenticatedUser, ClientIp};
 use crate::prelude::*;
 
 /// All routes that live under `/hello`.
@@ -48,19 +47,20 @@ struct ResponsePayload {
 ///
 
 async fn whoami_json(
-    user: Option<Extension<AuthenticatedUser>>,
-    client_ip: Option<Extension<ClientIp>>,
+    user: Option<Extension<ForwardAuthUser>>,
+    client_ip: Option<Extension<ForwardedClientIp>>,
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     State(state): State<AppState>,
     session: Session,
 ) -> impl IntoResponse {
     let email = match user {
-        Some(Extension(AuthenticatedUser(email))) => email,
+        Some(Extension(ForwardAuthUser(email))) => email,
         None => "<unauthenticated>".to_string(),
     };
 
-    let maybe_client_ip: Option<IpAddr> = client_ip.and_then(|Extension(ClientIp(inner))| inner);
+    let maybe_client_ip: Option<IpAddr> =
+        client_ip.and_then(|Extension(ForwardedClientIp(inner))| inner);
     let client_ip_json: Option<String> = maybe_client_ip.map(|ip| ip.to_string());
 
     // --- Reflect headers - except redact the session cookie

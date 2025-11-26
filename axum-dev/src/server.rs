@@ -7,9 +7,8 @@ use tower_sessions::{
 use tower_sessions_sqlx_store::SqliteStore;
 
 use crate::{
-    middleware::{TrustedForwardedForConfig, TrustedHeaderAuthConfig},
-    prelude::*,
-    routes::router,
+    middleware::trusted_forwarded_for::TrustedForwardedForConfig,
+    middleware::trusted_header_auth::TrustedHeaderAuthConfig, prelude::*, routes::router,
 };
 
 #[derive(Clone)]

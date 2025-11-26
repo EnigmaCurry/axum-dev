@@ -171,7 +171,7 @@ fn serve<W1: Write, W2: Write>(
 
     let trusted_proxy = *sub_matches.get_one::<IpAddr>("trusted_proxy").unwrap();
 
-    let auth_cfg = middleware::TrustedHeaderAuthConfig {
+    let auth_cfg = middleware::trusted_header_auth::TrustedHeaderAuthConfig {
         enabled,
         header_name,
         trusted_proxy,
@@ -198,7 +198,7 @@ fn serve<W1: Write, W2: Write>(
         }
     };
 
-    let fwd_cfg = middleware::TrustedForwardedForConfig {
+    let fwd_cfg = middleware::trusted_forwarded_for::TrustedForwardedForConfig {
         enabled: fwd_enabled,
         header_name: fwd_header_name,
         trusted_proxy,
