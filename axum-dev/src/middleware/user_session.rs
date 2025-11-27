@@ -7,6 +7,7 @@ use tower_sessions::Session;
 use uuid::Uuid;
 
 use crate::middleware::trusted_forwarded_for::ForwardedClientIp;
+use crate::middleware::trusted_header_auth::ForwardAuthUser;
 use crate::prelude::*;
 
 const SESSION_KEY: &str = "user_session_v1";
@@ -14,10 +15,13 @@ const SESSION_KEY: &str = "user_session_v1";
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 /// User session object contains a few global session data points per guest.
 pub struct UserSession {
+    /// The raw TCP peer address as seen by our server.
     pub peer_ip: String,
+    /// The authenticated user as reported by the trusted header (if any).
     pub forwarded_user_id: Option<ForwardAuthUser>,
     pub visit_count: u64,
     pub csrf_token: String,
+    /// Trusted client IP from x-forwarded-for (if enabled/valid).
     pub forwarded_client_ip: Option<String>,
 }
 
@@ -40,7 +44,8 @@ fn generate_csrf_token() -> String {
 /// - Ensure a CSRF token is present.
 /// - Increment visit_count.
 /// - Copy the trusted client IP (if available) into the session.
-/// - (For now) keep user_id as None even if the user is "authenticated" – mocked.
+/// - Copy the forwarded user (if available) into the session.
+/// - Record peer_ip as seen by our server.
 pub async fn user_session_middleware(
     session: Session,
     mut req: Request,
@@ -61,22 +66,22 @@ pub async fn user_session_middleware(
     // Bump visit count (saturating to avoid overflow).
     data.visit_count = data.visit_count.saturating_add(1);
 
-    // Pull trusted client IP (if any) from extensions.
+    // Pull trusted IP info (if any) from extensions.
+    if let Some(fwd) = req.extensions().get::<ForwardedClientIp>() {
+        // Always record peer IP if we have it.
+        data.peer_ip = fwd.peer_ip.to_string();
+        // And client IP if present.
+        data.forwarded_client_ip = fwd.client_ip.map(|ip| ip.to_string());
+    }
+
+    // Pull forwarded user (if any) from extensions.
     //
     // This will be:
-    // - Some("1.2.3.4") if `trusted_forwarded_for` is enabled and set a client IP
-    // - None if it was disabled or decided to hide the IP
-    // - None if that middleware isn't in the stack at all
-    data.forwarded_client_ip = req
-        .extensions()
-        .get::<ForwardedClientIp>()
-        .and_then(|f| f.client_ip.map(|ip| ip.to_string()));
-
-    // Mock auth check: even if you had auth info, we *intentionally*
-    // keep user_id as None for now.
-    if data.forwarded_user_id.is_none() {
-        // Future: inspect some AuthenticatedUser extension here.
-    }
+    // - Some(ForwardAuthUser(...)) if `trusted_header_auth` is enabled and set a user
+    // - None if it was disabled, the header was absent, or middleware not in stack
+    //
+    // We overwrite on every request so stale users don't linger in the session.
+    data.forwarded_user_id = req.extensions().get::<ForwardAuthUser>().cloned();
 
     // Persist back to the underlying tower_sessions::Session.
     data.persist(&session).await?;
