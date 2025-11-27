@@ -26,15 +26,19 @@ pub fn router(
         .fallback(fallback_404)
         .layer(TraceLayer::new_for_http());
 
-    app.layer(middleware::from_fn_with_state(
-        fwd_cfg,
-        trusted_forwarded_for::trusted_forwarded_for,
-    ))
-    .layer(middleware::from_fn_with_state(
-        user_cfg,
-        trusted_header_auth::trusted_header_auth,
-    ))
-    .layer(middleware::from_fn(user_session_middleware))
+    app
+        // REMEMBER: layers are executed from BOTTOM UP (first in, last out).
+        // user_session_middleware should run *after* forwarded_for and auth,
+        // so it must be added first here (bottom of the stack):
+        .layer(middleware::from_fn(user_session_middleware))
+        .layer(middleware::from_fn_with_state(
+            user_cfg,
+            trusted_header_auth::trusted_header_auth,
+        ))
+        .layer(middleware::from_fn_with_state(
+            fwd_cfg,
+            trusted_forwarded_for::trusted_forwarded_for,
+        ))
 }
 
 async fn root() -> &'static str {

@@ -6,6 +6,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use log::warn;
+use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, SocketAddr};
 
 /// Config for trusting an auth header from a forward-auth proxy (user/email).
@@ -29,8 +30,8 @@ impl TrustedHeaderAuthConfig {
 }
 
 /// Authenticated user email extracted from a trusted header.
-#[derive(Clone, Debug)]
-pub struct ForwardAuthUser(#[allow(dead_code)] pub String);
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct ForwardAuthUser(pub String);
 
 /// Middleware that enforces trusted-header auth for user/email.
 ///

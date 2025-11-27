@@ -6,14 +6,19 @@ use serde::{Deserialize, Serialize};
 use tower_sessions::Session;
 use uuid::Uuid;
 
+use crate::middleware::trusted_forwarded_for::ForwardedClientIp;
+use crate::prelude::*;
+
 const SESSION_KEY: &str = "user_session_v1";
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 /// User session object contains a few global session data points per guest.
 pub struct UserSession {
-    pub user_id: Option<String>,
+    pub peer_ip: String,
+    pub forwarded_user_id: Option<ForwardAuthUser>,
     pub visit_count: u64,
     pub csrf_token: String,
+    pub forwarded_client_ip: Option<String>,
 }
 
 impl UserSession {
@@ -34,6 +39,7 @@ fn generate_csrf_token() -> String {
 /// Responsibilities:
 /// - Ensure a CSRF token is present.
 /// - Increment visit_count.
+/// - Copy the trusted client IP (if available) into the session.
 /// - (For now) keep user_id as None even if the user is "authenticated" – mocked.
 pub async fn user_session_middleware(
     session: Session,
@@ -55,11 +61,21 @@ pub async fn user_session_middleware(
     // Bump visit count (saturating to avoid overflow).
     data.visit_count = data.visit_count.saturating_add(1);
 
+    // Pull trusted client IP (if any) from extensions.
+    //
+    // This will be:
+    // - Some("1.2.3.4") if `trusted_forwarded_for` is enabled and set a client IP
+    // - None if it was disabled or decided to hide the IP
+    // - None if that middleware isn't in the stack at all
+    data.forwarded_client_ip = req
+        .extensions()
+        .get::<ForwardedClientIp>()
+        .and_then(|f| f.client_ip.map(|ip| ip.to_string()));
+
     // Mock auth check: even if you had auth info, we *intentionally*
     // keep user_id as None for now.
-    if data.user_id.is_none() {
-        // In the future you might inspect some AuthenticatedUser extension here.
-        // For now: do nothing.
+    if data.forwarded_user_id.is_none() {
+        // Future: inspect some AuthenticatedUser extension here.
     }
 
     // Persist back to the underlying tower_sessions::Session.
