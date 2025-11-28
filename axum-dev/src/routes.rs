@@ -8,6 +8,7 @@ use crate::{
     AppState,
 };
 
+pub mod debug;
 pub mod hello;
 pub mod login;
 pub mod user;
@@ -24,6 +25,7 @@ pub fn router(
         .nest("/hello", hello::router())
         .nest("/whoami", whoami::router())
         .nest("/user", user::router())
+        .nest("/debug", debug::router())
         .fallback(fallback_404);
 
     // Routes that *do* require the trusted auth header:

@@ -7,6 +7,7 @@ use std::net::{IpAddr, SocketAddr};
 use tracing_subscriber::EnvFilter;
 
 mod cli;
+mod debug;
 mod errors;
 mod middleware;
 mod models;

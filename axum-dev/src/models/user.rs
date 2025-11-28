@@ -156,7 +156,7 @@ pub async fn select_user_by_external_id(
 /// Adjust the `name` if you used a different code in your seed data.
 async fn forwardauth_identity_provider_id(pool: &SqlitePool) -> Result<IdentityProviderId, Error> {
     // Assuming IdentityProviderId is a newtype over i64 / i32.
-    let raw_id: i64 = sqlx::query(r#"SELECT id FROM identity_providers WHERE name = ?1"#)
+    let raw_id: i64 = sqlx::query(r#"SELECT id FROM identity_provider WHERE name = ?1"#)
         .bind("traefik-forwardauth")
         .map(|row: sqlx::sqlite::SqliteRow| row.get::<i64, _>("id"))
         .fetch_one(pool)
