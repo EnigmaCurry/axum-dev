@@ -1,5 +1,10 @@
-use axum::{http::StatusCode, middleware, routing::get, Router};
-use tower_http::trace::TraceLayer;
+use axum::{
+    http::StatusCode,
+    middleware,
+    routing::{get, post},
+    Router,
+};
+use tower_http::{services::ServeDir, trace::TraceLayer};
 
 use crate::{
     middleware::{
@@ -10,6 +15,7 @@ use crate::{
 
 pub mod debug;
 pub mod hello;
+pub mod html;
 pub mod login;
 pub mod user;
 pub mod whoami;
@@ -20,7 +26,8 @@ pub fn router(
 ) -> Router<AppState> {
     // Routes that *don’t* care about the ForwardAuth header
     let app = Router::<AppState>::new()
-        .route("/", get(root))
+        .merge(html::router())
+        .nest_service("/static", ServeDir::new("static"))
         .route("/healthz", get(healthz))
         .nest("/hello", hello::router())
         .nest("/whoami", whoami::router())
@@ -30,7 +37,7 @@ pub fn router(
 
     // Routes that *do* require the trusted auth header:
     let login = Router::<AppState>::new()
-        .route("/login", get(login::login_handler))
+        .route("/login", post(login::login_handler))
         .layer(middleware::from_fn_with_state(
             user_cfg,
             trusted_header_auth::trusted_header_auth,

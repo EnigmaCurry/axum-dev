@@ -14,6 +14,7 @@ mod models;
 mod prelude;
 mod routes;
 mod server;
+mod views;
 
 use prelude::*;
 
