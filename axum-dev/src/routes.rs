@@ -24,7 +24,6 @@ pub fn router(
     user_cfg: trusted_header_auth::TrustedHeaderAuthConfig,
     fwd_cfg: trusted_forwarded_for::TrustedForwardedForConfig,
 ) -> Router<AppState> {
-    // Routes that *don’t* care about the ForwardAuth header
     let app = Router::<AppState>::new()
         .merge(html::router())
         .nest_service("/static", ServeDir::new("static"))
@@ -32,8 +31,10 @@ pub fn router(
         .nest("/hello", hello::router())
         .nest("/whoami", whoami::router())
         .nest("/user", user::router())
-        .nest("/debug", debug::router())
         .fallback(fallback_404);
+
+    // conditionally add /debug in debug builds only
+    let app = with_debug_routes(app);
 
     let app = app
         .merge(login::router(user_cfg))
@@ -46,6 +47,19 @@ pub fn router(
 
     let favicon = Router::new().route("/favicon.ico", get(favicon));
     app.merge(favicon)
+}
+
+// helper that’s compiled differently in debug vs release
+fn with_debug_routes(app: Router<AppState>) -> Router<AppState> {
+    #[cfg(debug_assertions)]
+    {
+        app.nest("/debug", debug::router())
+    }
+
+    #[cfg(not(debug_assertions))]
+    {
+        app
+    }
 }
 
 async fn root() -> &'static str {
