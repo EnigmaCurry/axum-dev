@@ -4,9 +4,9 @@
 
 {% block content %}
 <section>
-    <h1>Login</h1>
-
     {% if logged_in %}
+    <h1>Logout</h1>
+
         <p>
             You are currently logged in as
             <strong>{{ user_name }}</strong>.
@@ -18,7 +18,8 @@
                 Log out
             </button>
         </form>
-    {% else %}
+        {% else %}
+        <h1>Login</h1>
         <p>
             You are not logged in yet.
             This app uses your ForwardAuth provider for authentication.

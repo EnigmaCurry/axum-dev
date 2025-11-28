@@ -63,7 +63,7 @@ pub async fn login_handler(
     user_session.external_user_id = Some(user.external_id);
     user_session.persist(&session).await?;
 
-    Ok(Redirect::to("/whoami").into_response())
+    Ok(Redirect::to("/login").into_response())
 }
 
 #[derive(Deserialize)]
