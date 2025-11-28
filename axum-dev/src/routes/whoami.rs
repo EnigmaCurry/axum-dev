@@ -23,7 +23,7 @@ pub fn router() -> Router<AppState> {
 /// The subset of session data we want to expose publicly.
 #[derive(Debug, Serialize)]
 struct SessionPayload {
-    pub external_user_id: Option<ForwardAuthUser>,
+    pub external_user_id: Option<String>,
     pub client_ip: Option<String>,
     pub csrf_token: String,
     pub visit_count: u64,

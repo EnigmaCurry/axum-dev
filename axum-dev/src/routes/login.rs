@@ -25,9 +25,7 @@ pub async fn login_handler(
     let user = user::get_or_create_by_external_id(&state.db, &external_id).await?;
     debug!("user = {user:?}");
 
-    user_session.external_user_id = Some(ForwardAuthUser {
-        external_id: user.external_id,
-    });
+    user_session.external_user_id = Some(user.external_id);
 
     // 2) make persist return a compatible error type, or map explicitly
     user_session.persist(&session).await?; // see below
