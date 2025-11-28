@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use std::backtrace::Backtrace;
@@ -62,6 +63,10 @@ impl AppError {
             inner: err.into(),
             backtrace: Self::capture_backtrace(),
         }
+    }
+
+    pub fn unauthorized(message: &str) -> Self {
+        Self::with_status(StatusCode::UNAUTHORIZED, anyhow!(message.to_owned()))
     }
 }
 

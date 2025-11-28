@@ -1,7 +1,4 @@
-use axum::{
-    response::IntoResponse,
-    routing::get, Router,
-};
+use axum::{response::IntoResponse, routing::get, Router};
 
 use crate::{
     prelude::UserSession,
@@ -34,5 +31,6 @@ async fn show_login(user_session: UserSession) -> impl IntoResponse {
         title: "Login".to_string(),
         logged_in,
         user_name,
+        csrf_token: user_session.csrf_token.clone(),
     })
 }
