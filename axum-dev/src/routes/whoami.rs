@@ -57,11 +57,11 @@ async fn whoami_json(
     }
 
     let session = SessionPayload {
-        client_ip: match &user_session.forwarded_client_ip {
+        client_ip: match &user_session.client_ip {
             Some(ip) => Some(ip.clone()),
             None => Some(user_session.peer_ip.clone()),
         },
-        external_user_id: user_session.forwarded_user_id,
+        external_user_id: user_session.external_user_id,
         visit_count: user_session.visit_count,
         csrf_token: user_session.csrf_token.clone(),
     };

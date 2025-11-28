@@ -20,11 +20,11 @@ pub struct UserSession {
     ///
     /// This is now only set/cleared explicitly by login/logout flows,
     /// not by this middleware.
-    pub forwarded_user_id: Option<crate::middleware::trusted_header_auth::ForwardAuthUser>,
+    pub external_user_id: Option<crate::middleware::trusted_header_auth::ForwardAuthUser>,
     pub visit_count: u64,
     pub csrf_token: String,
     /// Trusted client IP from x-forwarded-for (if enabled/valid).
-    pub forwarded_client_ip: Option<String>,
+    pub client_ip: Option<String>,
 }
 
 impl UserSession {
@@ -47,7 +47,6 @@ fn generate_csrf_token() -> String {
 /// - Increment visit_count.
 /// - Copy the trusted client IP (if available) into the session.
 /// - Record peer_ip as seen by our server.
-/// - **Does NOT touch forwarded_user_id anymore.**
 
 pub async fn user_session_middleware(
     session: Session,
@@ -65,7 +64,7 @@ pub async fn user_session_middleware(
 
     if let Some(fwd) = req.extensions().get::<ForwardedClientIp>() {
         data.peer_ip = fwd.peer_ip.to_string();
-        data.forwarded_client_ip = fwd.client_ip.map(|ip| ip.to_string());
+        data.client_ip = fwd.client_ip.map(|ip| ip.to_string());
     }
     data.persist(&session).await?;
 
