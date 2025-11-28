@@ -36,15 +36,17 @@ pub fn router(
             trusted_header_auth::trusted_header_auth,
         ));
 
-    app.merge(login)
+    let app = app
+        .merge(login)
         .layer(TraceLayer::new_for_http())
-        // stack order from outermost to innermost:
-        // trusted_forwarded_for -> user_session_middleware -> routes
         .layer(middleware::from_fn(user_session_middleware))
         .layer(middleware::from_fn_with_state(
             fwd_cfg,
             trusted_forwarded_for::trusted_forwarded_for,
-        ))
+        ));
+
+    let favicon = Router::new().route("/favicon.ico", get(favicon));
+    app.merge(favicon)
 }
 
 async fn root() -> &'static str {
@@ -57,4 +59,8 @@ async fn healthz() -> &'static str {
 
 async fn fallback_404() -> (StatusCode, &'static str) {
     (StatusCode::NOT_FOUND, "Not Found")
+}
+
+async fn favicon() -> StatusCode {
+    StatusCode::NO_CONTENT
 }

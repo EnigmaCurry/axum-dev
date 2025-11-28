@@ -56,7 +56,7 @@ pub async fn user_session_middleware(
 ) -> AppResult<Response> {
     // Load existing typed session or start from default.
     let mut data: UserSession = session.get(SESSION_KEY).await?.unwrap_or_default();
-
+    debug!("UserSession: {data:?}");
     if data.csrf_token.is_empty() {
         data.csrf_token = generate_csrf_token();
     }
@@ -69,7 +69,7 @@ pub async fn user_session_middleware(
     }
     data.persist(&session).await?;
 
-    req.extensions_mut().insert(data);
+    //req.extensions_mut().insert(data);
 
     Ok(next.run(req).await)
 }
