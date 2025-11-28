@@ -1,16 +1,32 @@
 use axum::{
     extract::{Extension, State},
-    http::StatusCode,
+    middleware,
     response::{IntoResponse, Redirect},
+    routing::post,
+    Router,
 };
 use tower_sessions::Session;
 
 use crate::{
-    middleware::{trusted_header_auth::ForwardAuthUser, user_session::UserSession},
+    middleware::{
+        trusted_header_auth, trusted_header_auth::ForwardAuthUser, user_session::UserSession,
+    },
     models::user,
     prelude::*,
     server::AppState,
 };
+
+pub fn router(user_cfg: trusted_header_auth::TrustedHeaderAuthConfig) -> Router<AppState> {
+    Router::<AppState>::new()
+        .route(
+            "/login",
+            post(login_handler).layer(middleware::from_fn_with_state(
+                user_cfg,
+                trusted_header_auth::trusted_header_auth,
+            )),
+        )
+        .route("/logout", post(handle_logout))
+}
 
 pub async fn login_handler(
     State(state): State<AppState>,
@@ -31,4 +47,11 @@ pub async fn login_handler(
     user_session.persist(&session).await?; // see below
 
     Ok(Redirect::to("/whoami"))
+}
+
+pub async fn handle_logout(session: Session) -> impl IntoResponse {
+    if let Err(err) = session.flush().await {
+        tracing::error!("Failed to flush session on logout: {err}");
+    }
+    Redirect::to("/login")
 }

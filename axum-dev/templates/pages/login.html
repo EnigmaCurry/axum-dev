@@ -1,0 +1,32 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Login – Axum Dev{% endblock %}
+
+{% block content %}
+<section>
+    {% if logged_in %}
+        <p>
+            You are currently logged in as
+            <strong>{{ user_name }}</strong>.
+        </p>
+
+        <form action="/logout" method="post">
+            <button type="submit">
+                Log out
+            </button>
+        </form>
+    {% else %}
+        <p>
+            You are not logged in yet.
+            This app uses your ForwardAuth provider for authentication.
+        </p>
+
+        <form action="/login" method="post">
+            <!-- No fields: ForwardAuth handles identity -->
+            <button type="submit">
+                Sign in with ForwardAuth
+            </button>
+        </form>
+    {% endif %}
+</section>
+{% endblock %}

@@ -35,16 +35,8 @@ pub fn router(
         .nest("/debug", debug::router())
         .fallback(fallback_404);
 
-    // Routes that *do* require the trusted auth header:
-    let login = Router::<AppState>::new()
-        .route("/login", post(login::login_handler))
-        .layer(middleware::from_fn_with_state(
-            user_cfg,
-            trusted_header_auth::trusted_header_auth,
-        ));
-
     let app = app
-        .merge(login)
+        .merge(login::router(user_cfg))
         .layer(TraceLayer::new_for_http())
         .layer(middleware::from_fn(user_session_middleware))
         .layer(middleware::from_fn_with_state(
