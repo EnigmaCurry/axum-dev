@@ -31,7 +31,9 @@ impl TrustedHeaderAuthConfig {
 
 /// Authenticated user email extracted from a trusted header.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct ForwardAuthUser(pub String);
+pub struct ForwardAuthUser {
+    pub external_id: String,
+}
 
 /// Middleware that enforces trusted-header auth for user/email.
 ///
@@ -72,7 +74,7 @@ pub async fn trusted_header_auth(
         return next.run(req).await;
     }
 
-    let email: String = {
+    let external_id: String = {
         let raw = req
             .headers()
             .get(&cfg.header_name)
@@ -88,6 +90,6 @@ pub async fn trusted_header_auth(
         first.to_string()
     };
 
-    req.extensions_mut().insert(ForwardAuthUser(email));
+    req.extensions_mut().insert(ForwardAuthUser { external_id });
     next.run(req).await
 }

@@ -9,9 +9,11 @@ FUNCS_SCRIPT := "./_scripts/funcs.sh"
 ROOT := justfile_directory()
 RUST_LOG        := env_var_or_default("RUST_LOG", "debug")
 RUST_BACKTRACE  := env_var_or_default("RUST_BACKTRACE", "1")
+RUST_LIB_BACKTRACE  := env_var_or_default("RUST_LIB_BACKTRACE", "1")
 GIT_REMOTE      := env_var_or_default("GIT_REMOTE", "origin")
 ENV_FILE        := env_var_or_default("ENV_FILE", ".env")
 ENV_DIST        := env_var_or_default("ENV_DIST", ".env-dist")
+CARGO_PROFILE   := env_var_or_default("CARGO_PROFILE","release")
 
 APP          := "axum-dev"
 PROJECT_DIR  := ROOT / APP
@@ -255,7 +257,7 @@ clean-profile:
 
 # Build docker image
 build-docker: _env_check
-    ${DOCKER} build {{PROJECT_DIR}} -t ${DOCKER_IMAGE}
+    ${DOCKER} build {{PROJECT_DIR}} -t ${DOCKER_IMAGE} --build-arg CARGO_PROFILE="{{CARGO_PROFILE}}"
     echo "Tagged updated image ${DOCKER_IMAGE}"
 
 # Serve the app with Traefik and ForwardAuth
@@ -264,6 +266,8 @@ serve: _env_check build-docker
     --name axum-dev \
     -v ${DOCKER_VOLUME}:/data \
     -e RUST_LOG \
+    -e RUST_BACKTRACE \
+    -e RUST_LIB_BACKTRACE \
     -e LISTEN_IP \
     -e LISTEN_PORT \
     -e TRUSTED_PROXY \
@@ -278,7 +282,11 @@ serve: _env_check build-docker
     -l traefik.http.routers.axum-dev.entrypoints=websecure \
     -l traefik.http.routers.axum-dev.tls=true \
     -l traefik.http.services.axum-dev.loadbalancer.server.port=${LISTEN_PORT} \
-    -l traefik.http.routers.axum-dev.middlewares=traefik-forward-auth@docker,header-authorization-group-${TRUSTED_HEADER_AUTH_GROUP}@file \
+    -l "traefik.http.routers.axum-dev-login.rule=Host(\`${TRAEFIK_HOST}\`) && PathPrefix(\`/login\`)" \
+    -l traefik.http.routers.axum-dev-login.entrypoints=websecure \
+    -l traefik.http.routers.axum-dev-login.tls=true \
+    -l traefik.http.routers.axum-dev-login.service=axum-dev \
+    -l traefik.http.routers.axum-dev-login.middlewares=traefik-forward-auth@docker,header-authorization-group-${TRUSTED_HEADER_AUTH_GROUP}@file \
     ${DOCKER_IMAGE} serve
 
 # Serve the app by itself without Traefik
@@ -289,6 +297,8 @@ serve-plain: _env_check build-docker
     -p ${LISTEN_PORT}:${LISTEN_PORT} \
     -e SESSION_SECURE=false \
     -e RUST_LOG \
+    -e RUST_BACKTRACE \
+    -e RUST_LIB_BACKTRACE \
     -e LISTEN_IP \
     -e LISTEN_PORT \
     -e SESSION_EXPIRY_SECONDS \

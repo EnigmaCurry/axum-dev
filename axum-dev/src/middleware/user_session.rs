@@ -7,7 +7,6 @@ use tower_sessions::Session;
 use uuid::Uuid;
 
 use crate::middleware::trusted_forwarded_for::ForwardedClientIp;
-use crate::middleware::trusted_header_auth::ForwardAuthUser;
 use crate::prelude::*;
 
 const SESSION_KEY: &str = "user_session_v1";
@@ -18,7 +17,10 @@ pub struct UserSession {
     /// The raw TCP peer address as seen by our server.
     pub peer_ip: String,
     /// The authenticated user as reported by the trusted header (if any).
-    pub forwarded_user_id: Option<ForwardAuthUser>,
+    ///
+    /// This is now only set/cleared explicitly by login/logout flows,
+    /// not by this middleware.
+    pub forwarded_user_id: Option<crate::middleware::trusted_header_auth::ForwardAuthUser>,
     pub visit_count: u64,
     pub csrf_token: String,
     /// Trusted client IP from x-forwarded-for (if enabled/valid).
@@ -26,11 +28,11 @@ pub struct UserSession {
 }
 
 impl UserSession {
-    async fn persist(&self, session: &Session) -> Result<(), StatusCode> {
-        session
-            .insert(SESSION_KEY, self.clone())
-            .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+    pub async fn persist(&self, session: &Session) -> AppResult<()> {
+        // tower_sessions::session::Error implements std::error::Error,
+        // so `?` will turn it into AppError via your `impl<E: Error> From<E> for AppError`.
+        session.insert(SESSION_KEY, self.clone()).await?;
+        Ok(())
     }
 }
 
@@ -44,53 +46,31 @@ fn generate_csrf_token() -> String {
 /// - Ensure a CSRF token is present.
 /// - Increment visit_count.
 /// - Copy the trusted client IP (if available) into the session.
-/// - Copy the forwarded user (if available) into the session.
 /// - Record peer_ip as seen by our server.
+/// - **Does NOT touch forwarded_user_id anymore.**
+
 pub async fn user_session_middleware(
     session: Session,
     mut req: Request,
     next: Next,
-) -> Result<Response, StatusCode> {
+) -> AppResult<Response> {
     // Load existing typed session or start from default.
-    let mut data: UserSession = session
-        .get(SESSION_KEY)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .unwrap_or_default();
+    let mut data: UserSession = session.get(SESSION_KEY).await?.unwrap_or_default();
 
-    // Ensure CSRF token.
     if data.csrf_token.is_empty() {
         data.csrf_token = generate_csrf_token();
     }
 
-    // Bump visit count (saturating to avoid overflow).
     data.visit_count = data.visit_count.saturating_add(1);
 
-    // Pull trusted IP info (if any) from extensions.
     if let Some(fwd) = req.extensions().get::<ForwardedClientIp>() {
-        // Always record peer IP if we have it.
         data.peer_ip = fwd.peer_ip.to_string();
-        // And client IP if present.
         data.forwarded_client_ip = fwd.client_ip.map(|ip| ip.to_string());
     }
-
-    // Pull forwarded user (if any) from extensions.
-    //
-    // This will be:
-    // - Some(ForwardAuthUser(...)) if `trusted_header_auth` is enabled and set a user
-    // - None if it was disabled, the header was absent, or middleware not in stack
-    //
-    // We overwrite on every request so stale users don't linger in the session.
-    data.forwarded_user_id = req.extensions().get::<ForwardAuthUser>().cloned();
-
-    // Persist back to the underlying tower_sessions::Session.
     data.persist(&session).await?;
 
-    // Also stash the typed session in request extensions so handlers can
-    // extract it cheaply without hitting storage again.
     req.extensions_mut().insert(data);
 
-    // Continue down the stack.
     Ok(next.run(req).await)
 }
 

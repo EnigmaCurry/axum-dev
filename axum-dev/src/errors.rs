@@ -1,6 +1,8 @@
 use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
 use std::error::Error;
 use std::{fmt, io};
+use tracing::error;
 
 #[derive(Debug)]
 pub enum CliError {
@@ -26,10 +28,46 @@ impl From<io::Error> for CliError {
     }
 }
 
-pub fn internal_error<E: std::fmt::Display>(e: E) -> (StatusCode, String) {
-    (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+#[derive(Debug)]
+pub struct AppError {
+    pub status: StatusCode,
+    pub inner: anyhow::Error,
 }
-#[allow(dead_code)]
-pub fn not_found_error<E: std::fmt::Display>(e: E) -> (StatusCode, String) {
-    (StatusCode::NOT_FOUND, e.to_string())
+
+impl AppError {
+    /// default 500 error
+    pub fn new(err: impl Into<anyhow::Error>) -> Self {
+        Self {
+            status: StatusCode::INTERNAL_SERVER_ERROR,
+            inner: err.into(),
+        }
+    }
+
+    /// build an error with a specific HTTP status
+    pub fn with_status(status: StatusCode, err: impl Into<anyhow::Error>) -> Self {
+        Self {
+            status,
+            inner: err.into(),
+        }
+    }
 }
+
+// generic conversion for "normal" error types
+impl<E> From<E> for AppError
+where
+    E: std::error::Error + Send + Sync + 'static,
+{
+    fn from(err: E) -> Self {
+        AppError::new(err)
+    }
+}
+
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        // This is where the juicy backtrace gets logged
+        error!("internal error (status={}): {:#}", self.status, self.inner);
+        (self.status, "Internal Server Error").into_response()
+    }
+}
+
+pub type AppResult<T> = std::result::Result<T, AppError>;

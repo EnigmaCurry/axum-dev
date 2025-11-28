@@ -9,32 +9,36 @@ use crate::{
 };
 
 pub mod hello;
+pub mod login;
 pub mod user;
 pub mod whoami;
 
-/// Build your Axum router. Keep this as a separate function so it’s testable.
 pub fn router(
     user_cfg: trusted_header_auth::TrustedHeaderAuthConfig,
     fwd_cfg: trusted_forwarded_for::TrustedForwardedForConfig,
 ) -> Router<AppState> {
+    // Routes that *don’t* care about the ForwardAuth header
     let app = Router::<AppState>::new()
         .route("/", get(root))
         .route("/healthz", get(healthz))
         .nest("/hello", hello::router())
         .nest("/whoami", whoami::router())
         .nest("/user", user::router())
-        .fallback(fallback_404)
-        .layer(TraceLayer::new_for_http());
+        .fallback(fallback_404);
 
-    app
-        // REMEMBER: layers are executed from BOTTOM UP (first in, last out).
-        // user_session_middleware should run *after* forwarded_for and auth,
-        // so it must be added first here (bottom of the stack):
-        .layer(middleware::from_fn(user_session_middleware))
+    // Routes that *do* require the trusted auth header:
+    let login = Router::<AppState>::new()
+        .route("/login", get(login::login_handler))
         .layer(middleware::from_fn_with_state(
             user_cfg,
             trusted_header_auth::trusted_header_auth,
-        ))
+        ));
+
+    app.merge(login)
+        .layer(TraceLayer::new_for_http())
+        // stack order from outermost to innermost:
+        // trusted_forwarded_for -> user_session_middleware -> routes
+        .layer(middleware::from_fn(user_session_middleware))
         .layer(middleware::from_fn_with_state(
             fwd_cfg,
             trusted_forwarded_for::trusted_forwarded_for,
