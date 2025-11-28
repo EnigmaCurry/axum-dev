@@ -1,5 +1,6 @@
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use std::backtrace::Backtrace;
 use std::error::Error;
 use std::{fmt, io};
 use tracing::error;
@@ -32,14 +33,25 @@ impl From<io::Error> for CliError {
 pub struct AppError {
     pub status: StatusCode,
     pub inner: anyhow::Error,
+    pub backtrace: Option<Backtrace>,
 }
 
 impl AppError {
+    fn capture_backtrace() -> Option<Backtrace> {
+        // debug_assertions is enabled in dev builds, disabled in release
+        if cfg!(debug_assertions) {
+            Some(Backtrace::capture())
+        } else {
+            None
+        }
+    }
+
     /// default 500 error
     pub fn new(err: impl Into<anyhow::Error>) -> Self {
         Self {
             status: StatusCode::INTERNAL_SERVER_ERROR,
             inner: err.into(),
+            backtrace: Self::capture_backtrace(),
         }
     }
 
@@ -48,11 +60,12 @@ impl AppError {
         Self {
             status,
             inner: err.into(),
+            backtrace: Self::capture_backtrace(),
         }
     }
 }
 
-// generic conversion for "normal" error types
+// generic conversion for normal error types
 impl<E> From<E> for AppError
 where
     E: std::error::Error + Send + Sync + 'static,
@@ -64,8 +77,20 @@ where
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        // This is where the juicy backtrace gets logged
-        error!("internal error (status={}): {:#}", self.status, self.inner);
+        match self.backtrace {
+            Some(bt) => {
+                // Debug build: show full error + backtrace
+                error!(
+                    "internal error (status={}): {:#}\nbacktrace:\n{}",
+                    self.status, self.inner, bt
+                );
+            }
+            None => {
+                // Release build: just log the error chain, no backtrace noise
+                error!("internal error (status={}): {:#}", self.status, self.inner);
+            }
+        }
+
         (self.status, "Internal Server Error").into_response()
     }
 }
