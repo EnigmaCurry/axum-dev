@@ -3,8 +3,7 @@ use std::collections::BTreeMap;
 use axum::{
     extract::{OriginalUri, Request},
     http::{
-        header::{HOST, USER_AGENT},
-        HeaderMap, StatusCode,
+        header::{HOST, USER_AGENT}, StatusCode,
     },
     response::IntoResponse,
     routing::get,

@@ -1,11 +1,9 @@
 use axum::{
-    response::{IntoResponse, Redirect},
-    routing::{get, post},
-    Extension, Router,
+    response::IntoResponse,
+    routing::get, Router,
 };
 
 use crate::{
-    middleware::trusted_header_auth::ForwardAuthUser,
     prelude::UserSession,
     views::{HtmlTemplate, IndexTemplate, LoginTemplate},
     AppState,

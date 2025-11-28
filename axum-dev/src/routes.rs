@@ -1,7 +1,7 @@
 use axum::{
     http::StatusCode,
     middleware,
-    routing::{get, post},
+    routing::get,
     Router,
 };
 use tower_http::{services::ServeDir, trace::TraceLayer};

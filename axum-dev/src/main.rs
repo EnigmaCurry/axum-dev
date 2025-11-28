@@ -114,7 +114,7 @@ fn completions<W1: Write, W2: Write>(
             err,
             "  autoload -U compinit; compinit; source <({bin} completions zsh)"
         );
-        let _ = writeln!(err, "");
+        let _ = writeln!(err);
         Err(CliError::InvalidArgs("no shell argument".into()))
     }
 }
@@ -230,9 +230,9 @@ fn serve<W1: Write, W2: Write>(
         session_expiry_secs,
         session_check_secs,
     )) {
-        Ok(()) => return Ok(()),
+        Ok(()) => Ok(()),
         Err(e) => {
-            return Err(CliError::RuntimeError(format!("Server error: {e:#}")));
+            Err(CliError::RuntimeError(format!("Server error: {e:#}")))
         }
     }
 }

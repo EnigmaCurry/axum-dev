@@ -50,7 +50,7 @@ fn generate_csrf_token() -> String {
 
 pub async fn user_session_middleware(
     session: Session,
-    mut req: Request,
+    req: Request,
     next: Next,
 ) -> AppResult<Response> {
     // Load existing typed session or start from default.

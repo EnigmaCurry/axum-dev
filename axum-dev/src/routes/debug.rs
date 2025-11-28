@@ -1,21 +1,11 @@
-use crate::middleware::user_session::UserSession;
 use crate::prelude::*;
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum::{
-    extract::{OriginalUri, Request},
-    http::{
-        header::{HOST, USER_AGENT},
-        HeaderMap,
-    },
     routing::get,
     Router,
 };
 use rmp_serde::from_slice;
 use serde::Serialize;
-use serde_json::Value as JsonValue;
-use sqlx::SqlitePool;
-use std::collections::BTreeMap;
-use std::convert::Infallible;
 use tower_sessions::session::Record; // or `tower_sessions_core::session::Record`
 
 /// All routes that live under `/debug`.
