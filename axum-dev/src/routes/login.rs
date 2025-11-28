@@ -36,7 +36,7 @@ struct LoginForm {
     csrf_token: String,
 }
 
-pub async fn login_handler(
+async fn login_handler(
     State(state): State<AppState>,
     Extension(trusted_user): Extension<ForwardAuthUser>,
     mut user_session: UserSession,
@@ -71,7 +71,7 @@ struct LogoutForm {
     csrf_token: String,
 }
 
-pub async fn handle_logout(
+async fn handle_logout(
     mut user_session: UserSession,
     session: Session,
     Form(form): Form<LogoutForm>,

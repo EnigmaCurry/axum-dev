@@ -1,9 +1,6 @@
 use crate::prelude::*;
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
-use axum::{
-    routing::get,
-    Router,
-};
+use axum::{routing::get, Router};
 use rmp_serde::from_slice;
 use serde::Serialize;
 use tower_sessions::session::Record; // or `tower_sessions_core::session::Record`

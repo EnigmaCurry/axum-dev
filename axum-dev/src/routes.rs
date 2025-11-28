@@ -1,14 +1,10 @@
-use axum::{
-    http::StatusCode,
-    middleware,
-    routing::get,
-    Router,
-};
+use axum::{http::StatusCode, middleware, routing::get, Router};
 use tower_http::{services::ServeDir, trace::TraceLayer};
 
 use crate::{
     middleware::{
-        trusted_forwarded_for, trusted_header_auth, user_session::user_session_middleware,
+        csrf_protection, trusted_forwarded_for, trusted_header_auth,
+        user_session::user_session_middleware,
     },
     AppState,
 };
@@ -24,29 +20,40 @@ pub fn router(
     user_cfg: trusted_header_auth::TrustedHeaderAuthConfig,
     fwd_cfg: trusted_forwarded_for::TrustedForwardedForConfig,
 ) -> Router<AppState> {
-    let app = Router::<AppState>::new()
-        .merge(html::router())
-        .nest_service("/static", ServeDir::new("static"))
+    // 1) JSON APIs (all behind CSRF middleware)
+    let api = Router::<AppState>::new()
         .route("/healthz", get(healthz))
         .nest("/hello", hello::router())
         .nest("/whoami", whoami::router())
         .nest("/user", user::router())
-        .fallback(fallback_404);
+        .layer(middleware::from_fn(csrf_protection::csrf_middleware));
 
-    // conditionally add /debug in debug builds only
+    // 2) Start with an empty app:
+    let app = Router::<AppState>::new();
+    // 2b) add /debug only for debug builds:
     let app = with_debug_routes(app);
 
+    // 3) Compose everything together
     let app = app
+        // JSON APIs (CSRF-protected)
+        .nest("/api", api)
+        // Login / logout – these do their own CSRF checks in the handlers
         .merge(login::router(user_cfg))
-        .layer(TraceLayer::new_for_http())
+        // HTML pages + whoami UI, login form, etc.
+        .merge(html::router())
+        // Static assets
+        .nest_service("/static", ServeDir::new("static"))
+        .route("/favicon.ico", get(favicon))
+        // Global middlewares
         .layer(middleware::from_fn(user_session_middleware))
         .layer(middleware::from_fn_with_state(
             fwd_cfg,
             trusted_forwarded_for::trusted_forwarded_for,
-        ));
+        ))
+        .layer(TraceLayer::new_for_http())
+        .fallback(fallback_404);
 
-    let favicon = Router::new().route("/favicon.ico", get(favicon));
-    app.merge(favicon)
+    app
 }
 
 // helper that’s compiled differently in debug vs release
