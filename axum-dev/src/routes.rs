@@ -9,7 +9,7 @@ use crate::{
     AppState,
 };
 
-pub mod debug;
+pub mod admin;
 pub mod hello;
 pub mod html;
 pub mod login;
@@ -17,10 +17,9 @@ pub mod user;
 pub mod whoami;
 
 pub fn router(
-    user_cfg: trusted_header_auth::TrustedHeaderAuthConfig,
-    fwd_cfg: trusted_forwarded_for::TrustedForwardedForConfig,
+    hdr_auth_cfg: trusted_header_auth::TrustedHeaderAuthConfig,
+    fwd_for_cfg: trusted_forwarded_for::TrustedForwardedForConfig,
 ) -> Router<AppState> {
-    // 1) JSON APIs (all behind CSRF middleware)
     let api = Router::<AppState>::new()
         .route("/healthz", get(healthz))
         .nest("/hello", hello::router())
@@ -28,45 +27,24 @@ pub fn router(
         .nest("/user", user::router())
         .layer(middleware::from_fn(csrf_protection::csrf_middleware));
 
-    // 2) Start with an empty app:
-    let app = Router::<AppState>::new();
-    // 2b) add /debug only for debug builds:
-    let app = with_debug_routes(app);
+    let admin_api = Router::<AppState>::new()
+        .nest("/admin", admin::router())
+        .layer(middleware::from_fn(csrf_protection::csrf_middleware));
 
-    // 3) Compose everything together
-    let app = app
-        // JSON APIs (CSRF-protected)
+    Router::<AppState>::new()
         .nest("/api", api)
-        // Login / logout – these do their own CSRF checks in the handlers
-        .merge(login::router(user_cfg))
-        // HTML pages + whoami UI, login form, etc.
+        .merge(admin_api)
+        .merge(login::router(hdr_auth_cfg))
         .merge(html::router())
-        // Static assets
         .nest_service("/static", ServeDir::new("static"))
         .route("/favicon.ico", get(favicon))
-        // Global middlewares
         .layer(middleware::from_fn(user_session_middleware))
         .layer(middleware::from_fn_with_state(
-            fwd_cfg,
+            fwd_for_cfg,
             trusted_forwarded_for::trusted_forwarded_for,
         ))
         .layer(TraceLayer::new_for_http())
-        .fallback(fallback_404);
-
-    app
-}
-
-// helper that’s compiled differently in debug vs release
-fn with_debug_routes(app: Router<AppState>) -> Router<AppState> {
-    #[cfg(debug_assertions)]
-    {
-        app.nest("/debug", debug::router())
-    }
-
-    #[cfg(not(debug_assertions))]
-    {
-        app
-    }
+        .fallback(fallback_404)
 }
 
 async fn root() -> &'static str {

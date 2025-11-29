@@ -7,7 +7,6 @@ use std::net::{IpAddr, SocketAddr};
 use tracing_subscriber::EnvFilter;
 
 mod cli;
-mod debug;
 mod errors;
 mod middleware;
 mod models;
@@ -231,9 +230,7 @@ fn serve<W1: Write, W2: Write>(
         session_check_secs,
     )) {
         Ok(()) => Ok(()),
-        Err(e) => {
-            Err(CliError::RuntimeError(format!("Server error: {e:#}")))
-        }
+        Err(e) => Err(CliError::RuntimeError(format!("Server error: {e:#}"))),
     }
 }
 
