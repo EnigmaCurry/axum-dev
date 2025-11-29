@@ -47,11 +47,8 @@ pub fn router(
             trusted_forwarded_for::trusted_forwarded_for,
         ))
         .layer(TraceLayer::new_for_http())
-        .fallback(fallback_404)
-}
-
-async fn fallback_404() -> (StatusCode, &'static str) {
-    (StatusCode::NOT_FOUND, "Not Found")
+        .route("/", get(crate::frontend::spa_handler))
+        .route("/{*path}", get(crate::frontend::spa_handler))
 }
 
 async fn favicon() -> StatusCode {

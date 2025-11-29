@@ -1,8 +1,10 @@
 **/target
+**/Dockerfile*
+**/node_modules
 **/_test
 **/*.profraw
 **/*.profdata
 **/.env*
 **/*.db
-/data.db-shm
-/data.db-wal
+**/*.db-shm
+**/*.db-wal

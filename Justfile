@@ -257,13 +257,13 @@ clean-profile:
 
 # Build docker image
 build-docker: _env_check
-    ${DOCKER} build {{PROJECT_DIR}} -t ${DOCKER_IMAGE} --build-arg CARGO_PROFILE="{{CARGO_PROFILE}}"
+    ${DOCKER} build -f {{APP}}/Dockerfile -t ${DOCKER_IMAGE} --build-arg CARGO_PROFILE="{{CARGO_PROFILE}}" .
     echo "Tagged updated image ${DOCKER_IMAGE}"
 
 # Serve the app with Traefik and ForwardAuth
 serve: _env_check build-docker
     ${DOCKER} run --rm -it \
-    --name axum-dev \
+    --name {{APP}} \
     -v ${DOCKER_VOLUME}:/data \
     -e RUST_LOG \
     -e RUST_BACKTRACE \
@@ -278,21 +278,21 @@ serve: _env_check build-docker
     -e SESSION_EXPIRY_SECONDS \
     -e SESSION_CHECK_SECONDS \
     -l traefik.enable=true \
-    -l traefik.http.routers.axum-dev.rule=Host\(\`${TRAEFIK_HOST}\`\) \
-    -l traefik.http.routers.axum-dev.entrypoints=websecure \
-    -l traefik.http.routers.axum-dev.tls=true \
-    -l traefik.http.services.axum-dev.loadbalancer.server.port=${LISTEN_PORT} \
-    -l "traefik.http.routers.axum-dev-login.rule=Host(\`${TRAEFIK_HOST}\`) && PathPrefix(\`/login\`)" \
-    -l traefik.http.routers.axum-dev-login.entrypoints=websecure \
-    -l traefik.http.routers.axum-dev-login.tls=true \
-    -l traefik.http.routers.axum-dev-login.service=axum-dev \
-    -l traefik.http.routers.axum-dev-login.middlewares=traefik-forward-auth@docker,header-authorization-group-${TRUSTED_HEADER_AUTH_GROUP}@file \
+    -l traefik.http.routers.{{APP}}.rule=Host\(\`${TRAEFIK_HOST}\`\) \
+    -l traefik.http.routers.{{APP}}.entrypoints=websecure \
+    -l traefik.http.routers.{{APP}}.tls=true \
+    -l traefik.http.services.{{APP}}.loadbalancer.server.port=${LISTEN_PORT} \
+    -l "traefik.http.routers.{{APP}}-login.rule=Host(\`${TRAEFIK_HOST}\`) && PathPrefix(\`/login\`)" \
+    -l traefik.http.routers.{{APP}}-login.entrypoints=websecure \
+    -l traefik.http.routers.{{APP}}-login.tls=true \
+    -l traefik.http.routers.{{APP}}-login.service={{APP}} \
+    -l traefik.http.routers.{{APP}}-login.middlewares=traefik-forward-auth@docker,header-authorization-group-${TRUSTED_HEADER_AUTH_GROUP}@file \
     ${DOCKER_IMAGE} serve
 
 # Serve the app by itself without Traefik
 serve-plain: _env_check build-docker
     ${DOCKER} run --rm -it \
-    --name axum-dev \
+    --name {{APP}} \
     -v ${DOCKER_VOLUME}:/data \
     -p ${LISTEN_PORT}:${LISTEN_PORT} \
     -e SESSION_SECURE=false \
@@ -319,11 +319,11 @@ sql-local:
 
 # Enter sqlite shell of docker database
 sql:
-    ${DOCKER} exec -it axum-dev sqlite3 /data/data.db
+    ${DOCKER} exec -it {{APP}} sqlite3 /data/data.db
 
 destroy:
-    docker rm -fv axum-dev
+    docker rm -fv {{APP}}
     docker volume rm -f {{DOCKER_VOLUME}}
 
 shell:
-    docker exec -it axum-dev /bin/bash
+    docker exec -it {{APP}} /bin/bash

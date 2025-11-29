@@ -1,16 +1,19 @@
-use axum::{response::IntoResponse, routing::get, Router};
+use axum::{
+    //response::IntoResponse, routing::get,
+    Router,
+};
 
 use crate::{
-    views::{HtmlTemplate, IndexTemplate},
+    //    views::{HtmlTemplate, IndexTemplate},
     AppState,
 };
 
 pub fn router() -> Router<AppState> {
-    Router::new().route("/", get(index))
+    Router::new() //.route("/", get(index))
 }
 
-async fn index() -> impl IntoResponse {
-    HtmlTemplate(IndexTemplate {
-        title: "Home".to_string(),
-    })
-}
+// async fn index() -> impl IntoResponse {
+//     HtmlTemplate(IndexTemplate {
+//         title: "Home".to_string(),
+//     })
+// }

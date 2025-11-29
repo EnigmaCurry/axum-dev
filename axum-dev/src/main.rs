@@ -8,6 +8,7 @@ use tracing_subscriber::EnvFilter;
 
 mod cli;
 mod errors;
+mod frontend;
 mod middleware;
 mod models;
 mod prelude;
