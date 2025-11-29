@@ -323,6 +323,7 @@ sql:
 
 destroy:
     docker rm -fv axum-dev
+    docker volume rm -f {{DOCKER_VOLUME}}
 
 shell:
     docker exec -it axum-dev /bin/bash

@@ -1,10 +1,13 @@
-use crate::errors::AppError;
+use crate::{
+    errors::AppError,
+    views::{HtmlTemplate, LoginTemplate},
+};
 use axum::{
     extract::{Extension, State},
     http::StatusCode,
     middleware,
     response::{IntoResponse, Redirect},
-    routing::post,
+    routing::{get, post},
     Form, Router,
 };
 use serde::Deserialize;
@@ -23,10 +26,12 @@ pub fn router(user_cfg: trusted_header_auth::TrustedHeaderAuthConfig) -> Router<
     Router::<AppState>::new()
         .route(
             "/login",
-            post(login_handler).layer(middleware::from_fn_with_state(
-                user_cfg,
-                trusted_header_auth::trusted_header_auth,
-            )),
+            get(get_login)
+                .post(login_handler)
+                .layer(middleware::from_fn_with_state(
+                    user_cfg,
+                    trusted_header_auth::trusted_header_auth,
+                )),
         )
         .route("/logout", post(handle_logout))
 }
@@ -50,20 +55,37 @@ async fn login_handler(
             form.csrf_token,
             user_session.csrf_token
         );
-        // however you like to express 403/401 in AppResult
         return Err(AppError::unauthorized("invalid CSRF token"));
     }
 
     let external_id = trusted_user.external_id.clone();
-    debug!("external_id = {external_id}");
+    tracing::debug!("POST /login external_id = {external_id}");
 
     let user = user::get_or_create_by_external_id(&state.db, &external_id).await?;
-    debug!("user = {user:?}");
+    tracing::debug!("user = {user:?}");
 
     user_session.external_user_id = Some(user.external_id);
     user_session.persist(&session).await?;
 
-    Ok(Redirect::to("/login").into_response())
+    Ok(Redirect::to("/login"))
+}
+
+pub async fn get_login(
+    State(_state): State<AppState>,
+    Extension(trusted_user): Extension<ForwardAuthUser>,
+    user_session: UserSession,
+) -> AppResult<impl IntoResponse> {
+    let external_id = trusted_user.external_id.clone();
+    tracing::debug!("GET /login external_id = {external_id}");
+
+    let tmpl = LoginTemplate {
+        title: "Login".to_string(),
+        logged_in: user_session.external_user_id.is_some(),
+        external_user_id: Some(trusted_user.external_id),
+        csrf_token: user_session.csrf_token.clone(),
+    };
+
+    Ok(HtmlTemplate(tmpl))
 }
 
 #[derive(Deserialize)]

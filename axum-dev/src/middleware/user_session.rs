@@ -50,7 +50,7 @@ fn generate_csrf_token() -> String {
 
 pub async fn user_session_middleware(
     session: Session,
-    req: Request,
+    mut req: Request,
     next: Next,
 ) -> AppResult<Response> {
     // Load existing typed session or start from default.
@@ -68,7 +68,7 @@ pub async fn user_session_middleware(
     }
     data.persist(&session).await?;
 
-    //req.extensions_mut().insert(data);
+    req.extensions_mut().insert(data);
 
     Ok(next.run(req).await)
 }
