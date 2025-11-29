@@ -35,7 +35,7 @@ pub async fn admin_only_middleware(
                 .unwrap_or("<unknown>"),
             "admin access denied: not logged in",
         );
-        return Err(AppError::unauthorized("not logged in"));
+        return Err(AppError::unauthorized("Not logged in"));
     }
 
     // 2) Look up local user_id from the underlying tower Session (for roles)
@@ -57,7 +57,7 @@ pub async fn admin_only_middleware(
                 .unwrap_or("<unknown>"),
             "admin access denied: logged in but no local user_id in session",
         );
-        return Err(AppError::forbidden("admin role required"));
+        return Err(AppError::forbidden("Admin role required"));
     };
 
     // 3) Has admin/superadmin role?
