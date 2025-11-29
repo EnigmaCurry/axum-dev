@@ -21,6 +21,8 @@ pub struct UserSession {
     /// This is now only set/cleared explicitly by login/logout flows,
     /// not by this middleware.
     pub external_user_id: Option<String>,
+    #[serde(default)]
+    pub is_logged_in: bool,
     pub visit_count: u64,
     pub csrf_token: String,
     /// Trusted client IP from x-forwarded-for (if enabled/valid).

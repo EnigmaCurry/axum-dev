@@ -3,13 +3,14 @@ use tower_http::{services::ServeDir, trace::TraceLayer};
 
 use crate::{
     middleware::{
-        csrf_protection, trusted_forwarded_for, trusted_header_auth,
-        user_session::user_session_middleware,
+        admin_only::admin_only_middleware, csrf_protection, trusted_forwarded_for,
+        trusted_header_auth, user_session::user_session_middleware,
     },
     AppState,
 };
 
 pub mod admin;
+pub mod api;
 pub mod hello;
 pub mod html;
 pub mod login;
@@ -19,20 +20,22 @@ pub mod whoami;
 pub fn router(
     hdr_auth_cfg: trusted_header_auth::TrustedHeaderAuthConfig,
     fwd_for_cfg: trusted_forwarded_for::TrustedForwardedForConfig,
+    state: AppState,
 ) -> Router<AppState> {
     let api = Router::<AppState>::new()
-        .route("/healthz", get(healthz))
-        .nest("/hello", hello::router())
-        .nest("/whoami", whoami::router())
-        .nest("/user", user::router())
+        .nest("/api", api::router())
         .layer(middleware::from_fn(csrf_protection::csrf_middleware));
 
     let admin_api = Router::<AppState>::new()
         .nest("/admin", admin::router())
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            admin_only_middleware,
+        ))
         .layer(middleware::from_fn(csrf_protection::csrf_middleware));
 
     Router::<AppState>::new()
-        .nest("/api", api)
+        .merge(api)
         .merge(admin_api)
         .merge(login::router(hdr_auth_cfg))
         .merge(html::router())
@@ -45,14 +48,6 @@ pub fn router(
         ))
         .layer(TraceLayer::new_for_http())
         .fallback(fallback_404)
-}
-
-async fn root() -> &'static str {
-    "OK"
-}
-
-async fn healthz() -> &'static str {
-    "healthy"
 }
 
 async fn fallback_404() -> (StatusCode, &'static str) {

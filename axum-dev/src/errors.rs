@@ -68,6 +68,15 @@ impl AppError {
     pub fn unauthorized(message: &str) -> Self {
         Self::with_status(StatusCode::UNAUTHORIZED, anyhow!(message.to_owned()))
     }
+    pub fn forbidden(message: &str) -> Self {
+        Self::with_status(StatusCode::FORBIDDEN, anyhow!(message.to_owned()))
+    }
+    pub fn internal(message: &str) -> Self {
+        Self::with_status(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            anyhow!(message.to_owned()),
+        )
+    }
 }
 
 // generic conversion for normal error types
@@ -82,21 +91,18 @@ where
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        match self.backtrace {
-            Some(bt) => {
-                // Debug build: show full error + backtrace
-                error!(
-                    "internal error (status={}): {:#}\nbacktrace:\n{}",
-                    self.status, self.inner, bt
-                );
-            }
-            None => {
-                // Release build: just log the error chain, no backtrace noise
-                error!("internal error (status={}): {:#}", self.status, self.inner);
-            }
-        }
+        use axum::http::StatusCode;
+        use tracing::{error, warn};
 
-        (self.status, "Internal Server Error").into_response()
+        if self.status.is_server_error() {
+            // only real server bugs get the heavy logging
+            error!("internal error (status={}): {:#}", self.status, self.inner);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error").into_response()
+        } else {
+            // client / auth errors: shorter log, no backtrace
+            warn!("request failed (status={}): {}", self.status, self.inner);
+            (self.status, self.inner.to_string()).into_response()
+        }
     }
 }
 

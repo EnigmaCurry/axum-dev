@@ -65,7 +65,7 @@ pub async fn run(
     // Shared state
     let state = AppState { db, session_store };
 
-    let app = router(user_cfg, fwd_cfg)
+    let app = router(user_cfg, fwd_cfg, state.clone())
         .layer(session_layer)
         .with_state(state);
 

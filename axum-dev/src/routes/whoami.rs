@@ -23,6 +23,8 @@ pub fn router() -> Router<AppState> {
 /// The subset of session data we want to expose publicly.
 #[derive(Debug, Serialize)]
 struct SessionPayload {
+    #[serde(default)]
+    pub is_logged_in: bool,
     pub external_user_id: Option<String>,
     pub client_ip: Option<String>,
     pub csrf_token: String,
@@ -62,6 +64,7 @@ async fn whoami_json(
             None => Some(user_session.peer_ip.clone()),
         },
         external_user_id: user_session.external_user_id,
+        is_logged_in: user_session.is_logged_in,
         visit_count: user_session.visit_count,
         csrf_token: user_session.csrf_token.clone(),
     };

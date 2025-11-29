@@ -33,7 +33,7 @@ pub fn router(user_cfg: trusted_header_auth::TrustedHeaderAuthConfig) -> Router<
                     trusted_header_auth::trusted_header_auth,
                 )),
         )
-        .route("/logout", post(handle_logout))
+        .route("/logout", post(logout_handler))
 }
 
 #[derive(Deserialize)]
@@ -65,6 +65,7 @@ async fn login_handler(
     tracing::debug!("user = {user:?}");
 
     user_session.external_user_id = Some(user.external_id);
+    user_session.is_logged_in = true;
     user_session.persist(&session).await?;
 
     Ok(Redirect::to("/login"))
@@ -80,7 +81,7 @@ pub async fn get_login(
 
     let tmpl = LoginTemplate {
         title: "Login".to_string(),
-        logged_in: user_session.external_user_id.is_some(),
+        logged_in: user_session.is_logged_in,
         external_user_id: Some(trusted_user.external_id),
         csrf_token: user_session.csrf_token.clone(),
     };
@@ -93,7 +94,7 @@ struct LogoutForm {
     csrf_token: String,
 }
 
-async fn handle_logout(
+async fn logout_handler(
     mut user_session: UserSession,
     session: Session,
     Form(form): Form<LogoutForm>,
@@ -108,6 +109,7 @@ async fn handle_logout(
     }
 
     user_session.external_user_id = None;
+    user_session.is_logged_in = false;
 
     if let Err(err) = session.flush().await {
         tracing::error!("Failed to flush session on logout: {err}");

@@ -17,6 +17,7 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage,coverage_nightly)
 [dependencies]
 anyhow = "1.0.100"
 askama = "0.14.0"
+async-trait = "0.1.89"
 axum = { version = "0.8.7", features = ["multipart"] }
 bytes = "1.11.0"
 chrono = { version = "0.4.42", features = ["serde"] }
