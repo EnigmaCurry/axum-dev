@@ -1,11 +1,21 @@
 <!doctype html>
 <html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		%sveltekit.head%
-	</head>
-	<body data-sveltekit-preload-data="hover">
-		<div style="display: contents">%sveltekit.body%</div>
-	</body>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      html,
+      body {
+        background-color: oklch(0.129 0.042 264.695);
+        color: oklch(0.984 0.003 247.858);
+      }
+
+      :root {
+        color-scheme: dark;
+      }
+    </style>
+    %sveltekit.head%
+  </head>
+  <body class="dark" data-sveltekit-preload-data="hover">
+    <div style="display: contents">%sveltekit.body%</div>
+  </body>
 </html>
