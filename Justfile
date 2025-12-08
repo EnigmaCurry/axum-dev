@@ -7,7 +7,7 @@ set dotenv-required := false
 
 FUNCS_SCRIPT := "./_scripts/funcs.sh"
 ROOT := justfile_directory()
-RUST_LOG        := env_var_or_default("RUST_LOG", "debug")
+RUST_LOG        := env_var_or_default("RUST_LOG", "warn")
 RUST_BACKTRACE  := env_var_or_default("RUST_BACKTRACE", "1")
 RUST_LIB_BACKTRACE  := env_var_or_default("RUST_LIB_BACKTRACE", "1")
 GIT_REMOTE      := env_var_or_default("GIT_REMOTE", "origin")
@@ -22,14 +22,13 @@ CARGO_TOML   := MANIFEST
 CARGO_LOCK   := PROJECT_DIR / "Cargo.lock"
 TARGET_DIR   := PROJECT_DIR / "target"
 
-NPM          := env_var_or_default("NPM", "pnpm")
-DOCKER       := env_var_or_default("DOCKER", "docker")
-DOCKER_IMAGE := env_var_or_default("DOCKER_IMAGE", "rust-axum-template")
+NPM           := env_var_or_default("NPM", "pnpm")
+DOCKER        := env_var_or_default("DOCKER", "docker")
+DOCKER_IMAGE  := env_var_or_default("DOCKER_IMAGE", "rust-axum-template")
 DOCKER_VOLUME := env_var_or_default("DOCKER_VOLUME", "rust-axum-template")
-
-# Local DB path (does not affect docker container)
-DATABASE_PATH := env_var_or_default("DATABASE_PATH", "data.db")
-DATABASE_URL       := env_var_or_default("DATABASE_URL", "sqlite://" + DATABASE_PATH)
+INSTANCE      := env_var_or_default("INSTANCE", "default")
+ROOT_DIR      := env_var_or_default("ROOT_DIR", "${APP}-${INSTANCE}-data")
+DATABASE_PATH := ROOT_DIR / "{{INSTANCE}}-data.db"
 
 ### Container / app environment :::
 
@@ -43,7 +42,7 @@ AUTH_TRUSTED_PROXY              := env_var_or_default("AUTH_TRUSTED_PROXY", "127
 # Set auth method: username_password or forward_auth
 AUTH_METHOD                     := env_var_or_default("AUTH_METHOD", "username_password")
 AUTH_TRUSTED_HEADER_NAME        := env_var_or_default("AUTH_TRUSTED_HEADER_NAME", "X-Forwarded-User")
-AUTH_TRUSTED_HEADER_AUTH_GROUP       := env_var_or_default("TRUSTED_HEADER_AUTH_GROUP", "admin")
+AUTH_TRUSTED_HEADER_AUTH_GROUP  := env_var_or_default("TRUSTED_HEADER_AUTH_GROUP", "admin")
 
 AUTH_TRUSTED_FORWARDED_FOR      := env_var_or_default("AUTH_TRUSTED_FORWARDED_FOR", "false")
 AUTH_TRUSTED_FORWARDED_FOR_NAME := env_var_or_default("AUTH_TRUSTED_FORWARDED_FOR_NAME", "X-Forwarded-For")
@@ -299,7 +298,6 @@ build-docker: _env_check
 serve *args: _env_check build
     cd {{PROJECT_DIR}} && \
     AUTH_TRUSTED_FORWARDED_FOR=false \
-    DATABASE_URL={{DATABASE_URL}} \
     just run serve {{args}}
 
 # Serve the app in Docker with Traefik and ForwardAuth

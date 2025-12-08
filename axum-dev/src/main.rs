@@ -5,6 +5,7 @@ use cli::{AcmeDnsRegisterArgs, TlsAcmeChallenge, TlsMode};
 use errors::CliError;
 use middleware::auth::AuthenticationMethod;
 use std::env;
+use std::fs;
 use std::io::Write;
 use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
@@ -27,25 +28,29 @@ use crate::cli::{Cli, Commands, ServeArgs};
 use prelude::*;
 
 fn main() {
-    println!("ok");
-    init_tracing();
     if let Err(e) = run_cli(
         std::env::args_os(),
         &mut std::io::stdout(),
         &mut std::io::stderr(),
     ) {
         error!("run_cli failed: {:?}", e);
-        // Print only the user-facing message
         eprintln!("{e}");
         std::process::exit(1);
     }
 }
 
-fn init_tracing() {
+fn init_tracing(log_level: &str) {
+    use tracing_subscriber::EnvFilter;
+
+    let filter = EnvFilter::try_new(log_level)
+        .or_else(|_| EnvFilter::try_from_default_env())
+        .unwrap_or_else(|_| EnvFilter::new("info"));
+
     tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
+        .with_env_filter(filter)
         .pretty()
-        .init();
+        .try_init()
+        .ok();
 }
 
 /// run_cli is the common entrypoint for both main and unit tests.
@@ -79,7 +84,6 @@ where
     };
     cli.validate()?;
 
-    // Global log level handling (same logic as before, but using Cli fields)
     let log_level = (if cli.verbose {
         Some("debug".to_string())
     } else {
@@ -88,27 +92,12 @@ where
     .or_else(|| env::var("RUST_LOG").ok())
     .unwrap_or_else(|| "info".to_string());
 
-    let level = log::LevelFilter::from_str(&log_level).unwrap_or(log::LevelFilter::Info);
+    init_tracing(&log_level);
 
-    match env_logger::Builder::new()
-        .filter_level(level)
-        .format_timestamp_secs()
-        .try_init()
-    {
-        Ok(_) => {
-            debug!("env_logger initialized with level {level:?}");
-        }
-        Err(err) => {
-            // This will go through tracing_subscriber, which we already set up in init_tracing()
-            warn!("env_logger initialization failed (a logger may already be set): {err}");
-        }
-    }
-
-    // Dispatch subcommands using strongly-typed enums instead of ArgMatches.
     match cli.command {
         Commands::Completions { shell } => completions(shell, out, err),
-        Commands::Serve(args) => serve(args, out, err),
-        Commands::AcmeDnsRegister(args) => acme_dns_register(args, out, err),
+        Commands::Serve(args) => serve(args, cli.root_dir.clone(), out, err),
+        Commands::AcmeDnsRegister(args) => acme_dns_register(args, cli.root_dir.clone(), out, err),
     }
 }
 
@@ -159,9 +148,11 @@ fn generate_completion_script<W: Write>(shell: Shell, out: &mut W) {
 
 fn serve<W1: Write, W2: Write>(
     args: ServeArgs,
+    root_dir: std::path::PathBuf,
     _out: &mut W1,
     _err: &mut W2,
 ) -> Result<(), CliError> {
+    let root_dir = ensure_root_dir(root_dir)?;
     // --- Network ---
     let ip = &args.network.listen_ip;
     let port = args.network.listen_port;
@@ -203,7 +194,15 @@ fn serve<W1: Write, W2: Write>(
             }
         }
         TlsMode::SelfSigned => {
-            let cache_dir = args.tls.cache_dir.as_ref().map(|s| PathBuf::from(s));
+            let cache_dir: Option<PathBuf> = {
+                if let Some(dir) = &args.tls.cache_dir {
+                    let p = PathBuf::from(dir);
+                    Some(if p.is_relative() { root_dir.join(p) } else { p })
+                } else {
+                    // Default: persist self-signed material under <root>/tls-cache
+                    Some(root_dir.join("tls-cache"))
+                }
+            };
 
             let sans = args.tls.sans.clone();
             let valid_days = args.tls.self_signed_valid_days;
@@ -220,15 +219,21 @@ fn serve<W1: Write, W2: Write>(
             }
         }
         TlsMode::Acme => {
-            // Shared bits: cache dir, domains, directory URL, email
-            let cache_dir_str = args.tls.cache_dir.clone().ok_or_else(|| {
-                CliError::InvalidArgs(
-                    "TLS cache directory is required when --tls-mode=acme. \
-                     Provide --tls-cache-dir or set TLS_CACHE_DIR."
-                        .to_string(),
-                )
-            })?;
-            let cache_dir = PathBuf::from(cache_dir_str);
+            // Shared bits: cache dir, domains, directory URL, email.
+            let cache_dir: PathBuf = if let Some(dir) = &args.tls.cache_dir {
+                let p = PathBuf::from(dir);
+                if p.is_relative() { root_dir.join(p) } else { p }
+            } else {
+                root_dir.join("tls-cache")
+            };
+
+            // You may want to ensure the directory exists:
+            if let Err(e) = std::fs::create_dir_all(&cache_dir) {
+                return Err(CliError::RuntimeError(format!(
+                    "Failed to create TLS cache dir {}: {e}",
+                    cache_dir.display()
+                )));
+            }
 
             let mut domains: Vec<String> = args
                 .tls
@@ -237,6 +242,8 @@ fn serve<W1: Write, W2: Write>(
                 .cloned()
                 .filter(|s| !s.trim().is_empty())
                 .collect();
+
+            // (rest of your ACME code unchanged, now using `cache_dir`)
 
             if let Some(ref host) = args.network.net_host {
                 if !host.trim().is_empty() {
@@ -308,7 +315,14 @@ fn serve<W1: Write, W2: Write>(
     };
 
     // --- Database + session config ---
-    let db_url = args.clone().database.database_url;
+    let mut db_url = args.clone().database.database_url;
+
+    // Only rewrite the default dev URL; if the user explicitly set DATABASE_URL,
+    // we assume they know what they’re doing.
+    if db_url == "sqlite:data.db" {
+        let db_path = root_dir.join("data.db");
+        db_url = format!("sqlite://{}", db_path.display());
+    }
 
     let session_secure = args.session.session_secure;
     let session_expiry_secs = args.session.session_expiry_seconds;
@@ -417,11 +431,27 @@ fn serve<W1: Write, W2: Write>(
 
 fn acme_dns_register<W1: Write, W2: Write>(
     args: AcmeDnsRegisterArgs,
+    root_dir: std::path::PathBuf,
     out: &mut W1,
     _err: &mut W2,
 ) -> Result<(), CliError> {
-    // Where to store creds
-    let cache_dir = PathBuf::from(args.cache_dir.unwrap_or_else(|| "./tls-cache".to_string()));
+    let root_dir = ensure_root_dir(root_dir)?;
+    // Where to store creds:
+    // - If --tls-cache-dir / TLS_CACHE_DIR is set, respect it (but make it relative to root_dir when needed).
+    // - Otherwise default to <root_dir>/tls-cache.
+    let cache_dir = if let Some(dir) = &args.cache_dir {
+        let p = PathBuf::from(dir);
+        if p.is_relative() { root_dir.join(p) } else { p }
+    } else {
+        root_dir.join("tls-cache")
+    };
+
+    if let Err(e) = std::fs::create_dir_all(&cache_dir) {
+        return Err(CliError::RuntimeError(format!(
+            "Failed to create TLS cache dir {}: {e}",
+            cache_dir.display()
+        )));
+    }
 
     // Build domain list from NET_HOST + TLS_SANS for CNAME hints
     let mut domains: Vec<String> = Vec::new();
@@ -520,4 +550,14 @@ fn help_prints_when_no_subcommand() {
         actual_norm, expected_norm,
         "normalized help output from run_cli did not match Command::write_help()"
     );
+}
+
+fn ensure_root_dir(root_dir: PathBuf) -> Result<PathBuf, CliError> {
+    if let Err(e) = fs::create_dir_all(&root_dir) {
+        return Err(CliError::RuntimeError(format!(
+            "Failed to create root dir {}: {e}",
+            root_dir.display()
+        )));
+    }
+    Ok(root_dir)
 }

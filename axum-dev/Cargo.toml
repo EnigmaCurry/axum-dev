@@ -23,7 +23,7 @@ axum = { version = "0.8.7", features = ["multipart"] }
 bcrypt = "0.17.1"
 bytes = "1.11.0"
 chrono = { version = "0.4.42", features = ["serde"] }
-clap = { version = "4.5.17", features = ["derive", "env"] }
+clap = { version = "4.5.17", features = ["derive", "string", "env"] }
 clap_complete = "4.5.29"
 dirs = "5.0.1"
 env_logger = "0.11.5"

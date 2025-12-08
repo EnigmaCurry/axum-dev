@@ -1,6 +1,6 @@
 use crate::{errors::CliError, middleware::auth::AuthenticationMethod};
 use clap::{Args, CommandFactory, Parser, Subcommand, ValueEnum};
-use std::path::PathBuf;
+use std::{env, path::PathBuf};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -24,6 +24,21 @@ pub struct Cli {
     #[arg(short = 'v', global = true)]
     pub verbose: bool,
 
+    /// Base directory for config + state (like `-C` in many GNU tools).
+    ///
+    /// When set, relative paths for the database, TLS cache, ACME accounts,
+    /// and acme-dns credentials are resolved under this directory, and the
+    /// directory is created if needed.
+    #[arg(
+        short = 'C',
+        long = "root-dir",
+        env = "ROOT_DIR",
+        global = true,
+        default_value = default_root_dir().into_os_string(),
+        value_name = "DIR",
+    )]
+    pub root_dir: PathBuf,
+
     #[command(subcommand)]
     pub command: Commands,
 }
@@ -31,7 +46,7 @@ pub struct Cli {
 impl Cli {
     pub fn validate(&self) -> Result<(), CliError> {
         match &self.command {
-            Commands::Serve(args) => args.validate(),
+            Commands::Serve(args) => args.validate(&self.root_dir),
             Commands::Completions { .. } => Ok(()),
             Commands::AcmeDnsRegister { .. } => Ok(()),
         }
@@ -76,8 +91,8 @@ pub struct ServeArgs {
 }
 
 impl ServeArgs {
-    pub fn validate(&self) -> Result<(), CliError> {
-        self.tls.validate()
+    pub fn validate(&self, root_dir: &std::path::Path) -> Result<(), CliError> {
+        self.tls.validate_with_root(root_dir)
     }
 }
 
@@ -348,15 +363,7 @@ pub struct TlsArgs {
 }
 
 impl TlsArgs {
-    pub fn validate(&self) -> Result<(), CliError> {
-        if matches!(self.mode, TlsMode::Acme) && self.cache_dir.is_none() {
-            return Err(CliError::InvalidArgs(
-                "TLS cache directory is required when --tls-mode=acme. \
-                 Provide --tls-cache-dir or set TLS_CACHE_DIR."
-                    .to_string(),
-            ));
-        }
-
+    pub fn validate_with_root(&self, _root_dir: &std::path::Path) -> Result<(), CliError> {
         if matches!(self.mode, TlsMode::Manual) {
             if self.cert_path.is_none() || self.key_path.is_none() {
                 return Err(CliError::InvalidArgs(
@@ -365,7 +372,6 @@ impl TlsArgs {
                 ));
             }
         }
-
         Ok(())
     }
 }
@@ -432,4 +438,26 @@ pub struct AcmeDnsRegisterArgs {
 
 pub fn app() -> clap::Command {
     Cli::command()
+}
+
+fn default_root_dir() -> PathBuf {
+    // CARGO_BIN_NAME is compile-time, so this is cheap.
+    let bin = env!("CARGO_BIN_NAME");
+
+    // 1) If XDG_DATA_HOME is set, prefer it.
+    if let Ok(xdg) = env::var("XDG_DATA_HOME") {
+        if !xdg.is_empty() {
+            return PathBuf::from(xdg).join(bin);
+        }
+    }
+
+    // 2) Fallback: ~/.local/share/<bin>
+    if let Ok(home) = env::var("HOME") {
+        if !home.is_empty() {
+            return PathBuf::from(home).join(".local").join("share").join(bin);
+        }
+    }
+
+    // 3) Last resort: current directory / <bin>-data
+    PathBuf::from(format!("{bin}-data"))
 }
