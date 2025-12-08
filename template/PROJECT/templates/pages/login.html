@@ -1,0 +1,56 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Login – Axum Dev{% endblock %}
+
+{% block content %}
+<section>
+    {% if logged_in %}
+        {% match external_user_id %}
+        {% when Some with (id) %}
+            <h1>You are logged in</h1>
+            <p>
+              Your ForwardAuth external user id is:
+              <strong>{{ id }}</strong>
+            </p>
+
+            <form action="/logout" method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit">
+                    Log out
+                </button>
+            </form>
+        {% when None %}
+            <h1>Something went wrong</h1>
+            <p>
+                We couldn't verify your account due to a server issue.
+                Please try again later or contact an administrator.
+            </p>
+        {% endmatch %}
+    {% else %}
+        {% match external_user_id %}
+        {% when Some with (id) %}
+            <h1>Login</h1>
+            <p>
+              You are not logged in yet.
+            </p>
+            <p>
+                This app uses your ForwardAuth provider for
+                authentication.
+            </p>
+
+            <form action="/login" method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit">
+                    Sign in as {{ id }}
+                </button>
+            </form>
+        {% when None %}
+            <h1>Login unavailable</h1>
+            <p>
+                We couldn't complete your login because of a server issue.
+                Please try again later or contact an administrator.
+            </p>
+        {% endmatch %}
+    {% endif %}
+</section>
+{% endblock %}
