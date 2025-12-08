@@ -1,74 +1,192 @@
-# rust-axum-template
+# axum-dev
 
-This is my [Axum](https://github.com/tokio-rs/axum) server template for new
-Rust web projects.
-
-This is ALPHA software in-development.
+[![Crates.io](https://img.shields.io/crates/v/axum-dev?color=blue
+)](https://crates.io/crates/axum-dev)
+[![Coverage](https://img.shields.io/badge/Coverage-Report-purple)](https://enigmacurry.github.io/axum-dev/coverage/master/)
 
 ## Features
 
-For the full list of features, see the embedded
-[README.md](template/README.md) inside the template.
+ * Single binary deployment.
+ * Embedded SQLite database.
+ * RESTFul JSON API built with
+   [axum](https://github.com/tokio-rs/axum).
+ * Builtin TLS with the following modes:
+   * ACME supporting TLS-ALPN-01 and DNS-01 challenge types. (e.g.,
+     when you need a production certificate from Let's Encrypt.)
+   * Automatic TLS with self-signed certificate (e.g., when using
+     certificate pinning).
+   * TLS with a provided certificate and key file (e.g., `.pem` files
+     that you rotate manually).
+   * None (plain HTTP) (e.g., when deployed behind a reverse proxy
+     that terminates TLS on its behalf).
+ * OpenAPI specification built with
+   [aide](https://github.com/tamasfe/aide/).
+ * Interactive API docs with your choice of
+   [Scalar](https://github.com/ScalaR/ScalaR),
+   [Redoc](https://github.com/Redocly/redoc), or [Swagger
+   UI](https://github.com/swagger-api/swagger-ui?tab=readme-ov-file).
+ * Multiple user authentication backends:
+   * Username / Password.
+   * Forward Auth via trusted header (Traefik Proxy or compatible proxy layer).
+   * Todo: OAuth (OIDC).
+ * Admin web interface.
+ * [Just](https://github.com/casey/just) enabled project build
+   targets.
+ * [Clap](https://docs.rs/clap/latest/clap/) CLI argument parser.
+ * Bash / Fish / Zsh shell (tab)
+   [completion](https://docs.rs/clap_complete/latest/clap_complete/).
+ * GitHub actions for tests and releases:
+   * Builds executables for multiple platforms.
+   * Builds Docker images for x86_64 and aarch64.
+   * Test coverage report published to GitHub pages.
+   * Publishing crates to crates.io (disabled by default, uncomment in
+   [release.yml](template/.github/workflows/release.yml)).
 
-## How to use this template
-
- * [Create a new repository using this template](https://github.com/new?template_name=rust-axum-template&template_owner=EnigmaCurry).
- * The `Repository name` that you choose will also become the name of
-   your new app.
- * Go to the GitHub repository `Settings` page:
-   * Find `Pages`.
-   * Find `Build and deployment`.
-   * Find `Source` and set it to `GitHub Actions`. (**Not** `Deploy
-     from a branch`)
-
-## Clone your new repository to your workstation.
-
-```
-## For example:
-FORGE=github.com
-USERNAME=your_username
-REPOSITORY=your_repository
-
-git clone git@${FORGE}:${USERNAME}/${REPOSITORY}.git \
-   ~/git/vendor/${USERNAME}/${REPOSITORY}
-
-cd ~/git/vendor/${USERNAME}/${REPOSITORY}
-```
-
-## Render the template
-
-After cloning the repository to your workstation, you must initialize
- it:
-
-```
-./setup.sh
-```
-
-This will render the template files into the project root and then
-self-destruct this README.md and the template.
-
-It will also build and run the initial tests. Importantly, this will
-also create the Cargo.lock file for the first time.
-
-## Commit the initial app source files
-
-Once you've verified that the tests ran correctly, you can add all of
-the files the template generated, as well as the `Cargo.lock` file,
-into the git repository. Commit and push your changes:
+## Build
 
 ```
-## For example:
-
-git add .
-git commit -m "init"
-git push
+just build --release
 ```
 
-You're now ready to start developing your application.
+Find your built executable in `target/release/axum-dev`.
 
-## Releasing your app
+## Install
 
-See [DEVELOPMENT.md](template/DEVELOPMENT.md) for instructions on the
-release process, a copy of this file has been included in your new git
-repository's root.
- 
+```
+sudo install \
+  target/release/axum-dev \
+  /usr/local/bin/axum-dev
+```
+
+## Run
+
+Run `axum-dev --help` to find all the options, but broadly speaking
+there are a few ways you can run it:
+
+### Plain HTTP
+
+You should always use TLS, so only use plain HTTP if you are hosting
+behind a reverse proxy that terminates TLS for you:
+
+```
+export NET_HOST=axum-dev.example.org
+export NET_LISTEN_IP=0.0.0.0
+export NET_LISTEN_PORT=80
+export DATABASE_URL=sqlite:data.db
+export AUTH_METHOD=username_password
+export SESSION_SECURE=false
+export RUST_LOG=axum_dev=info
+
+axum-dev serve
+```
+
+### Manual TLS
+
+```
+export NET_HOST=axum-dev.example.org
+export NET_LISTEN_IP=0.0.0.0
+export NET_LISTEN_PORT=443
+export DATABASE_URL=sqlite:data.db
+export AUTH_METHOD=username_password
+export SESSION_SECURE=true
+export TLS_MODE=manual
+export TLS_CERT_PATH=cert.pem
+export TLS_KEY_PATH=key.pem
+export RUST_LOG=axum_dev=info
+
+axum-dev serve
+```
+
+### ACME (TLS-ALPN-01)
+
+```
+export NET_HOST=axum-dev.example.org
+export TLS_SANS=
+export NET_LISTEN_IP=0.0.0.0
+export NET_LISTEN_PORT=443
+export DATABASE_URL=sqlite:data.db
+export AUTH_METHOD=username_password
+export SESSION_SECURE=true
+export TLS_MODE=acme
+export TLS_ACME_CHALLENGE=tls-alpn-01
+export TLS_ACME_DIRECTORY_URL=https://acme-v02.api.letsencrypt.org/directory
+export TLS_ACME_EMAIL=
+export TLS_CACHE_DIR=./tls-cache
+export RUST_LOG=axum_dev=info
+
+axum-dev serve
+```
+
+### ACME (DNS-01 via ACME-DNS)
+
+```
+export NET_HOST=axum-dev.example.org
+export TLS_SANS=
+export NET_LISTEN_IP=0.0.0.0
+export NET_LISTEN_PORT=443
+export DATABASE_URL=sqlite:data.db
+export AUTH_METHOD=username_password
+export SESSION_SECURE=true
+export TLS_MODE=acme
+export TLS_ACME_CHALLENGE=dns-01
+export TLS_ACME_DIRECTORY_URL=https://acme-v02.api.letsencrypt.org/directory
+export TLS_ACME_EMAIL=
+export ACME_DNS_API_BASE=https://auth.acme-dns.io
+export TLS_CACHE_DIR=./tls-cache
+export RUST_LOG=axum_dev=info
+
+## Register ACME-DNS account 
+## Follow the instructions it gies to create CNAME records:
+axum-dev acme-dns-register
+
+## Loads ACME-DNS credentials and provisions cert on first run:
+axum-dev serve
+```
+
+### Self-Signed TLS
+
+```
+export NET_HOST=axum-dev.example.org
+export NET_LISTEN_IP=0.0.0.0
+export NET_LISTEN_PORT=443
+export DATABASE_URL=sqlite:data.db
+export AUTH_METHOD=username_password
+export SESSION_SECURE=true
+export TLS_MODE=self-signed
+## If TLS_CACHE_DIR is not set, self-signed certs are ephemeral:
+export TLS_CACHE_DIR=./tls-cache
+export RUST_LOG=axum_dev=info
+
+axum-dev serve
+```
+
+## Development
+
+For development, you are advised to install
+[just](https://github.com/casey/just) and use the targets defined in
+the [Justfile](Justfile).
+
+## Configure the .env file
+
+```
+just config
+```
+
+This will copy the provided [.env-dist](template/.env-dist) to `.env`.
+You should edit the generated `.env` file by hand to configure your
+application.
+
+You can set an alternative `.env` file path by setting the `ENV_FILE`
+environment variable.
+
+## Run the program
+
+```
+just run [ARGS ...]
+```
+
+You can also run the binary directly by building manually (`just
+build`) and running the static binary
+`{{app_name}}/target/debug/{{app_name}}`.
+
+Also see [DEVELOPMENT.md](DEVELOPMENT.md)
