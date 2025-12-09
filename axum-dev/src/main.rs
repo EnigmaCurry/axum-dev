@@ -1,6 +1,7 @@
 use axum::http::HeaderName;
 use clap::{CommandFactory, Parser, error::ErrorKind};
 use clap_complete::shells::Shell;
+use cli::build_log_level;
 use cli::{AcmeDnsRegisterArgs, TlsAcmeChallenge, TlsMode};
 use errors::CliError;
 use middleware::auth::AuthenticationMethod;
@@ -96,14 +97,7 @@ where
 
     cli.validate()?;
 
-    let log_level = (if cli.verbose {
-        Some("debug".to_string())
-    } else {
-        cli.log.clone()
-    })
-    .or_else(|| env::var("RUST_LOG").ok())
-    .unwrap_or_else(|| "info".to_string());
-
+    let log_level = build_log_level(&cli);
     init_tracing(&log_level);
 
     match cli.command {

@@ -1,5 +1,5 @@
 use crate::{errors::CliError, middleware::auth::AuthenticationMethod};
-use clap::{Args, CommandFactory, Parser, Subcommand, ValueEnum};
+use clap::{ArgAction, Args, CommandFactory, Parser, Subcommand, ValueEnum};
 use std::{env, path::PathBuf};
 
 #[derive(Parser, Debug)]
@@ -20,9 +20,9 @@ pub struct Cli {
     )]
     pub log: Option<String>,
 
-    /// Sets the log level to debug.
-    #[arg(short = 'v', global = true)]
-    pub verbose: bool,
+    /// Increase verbosity (-v, -vv, -vvv, -vvvv)
+    #[arg(short = 'v', global = true, action = ArgAction::Count)]
+    pub verbose: u8,
 
     /// Base directory for config + state (like `-C` in many GNU tools).
     ///
@@ -438,4 +438,34 @@ fn default_root_dir() -> PathBuf {
 
     // 3) Last resort: current directory / <bin>-data
     PathBuf::from(format!("{bin}-data"))
+}
+
+pub fn build_log_level(cli: &Cli) -> String {
+    match cli.verbose {
+        0 => {
+            // no -v: use --log, then env, then default
+            cli.log
+                .clone()
+                .or_else(|| std::env::var("RUST_LOG").ok())
+                .unwrap_or_else(|| "warn".to_string())
+        }
+        1 => {
+            // -v: only this crate at info
+            let crate_name = env!("CARGO_CRATE_NAME");
+            format!("{crate_name}=info")
+        }
+        2 => {
+            // -vv: only this crate at debug
+            let crate_name = env!("CARGO_CRATE_NAME");
+            format!("{crate_name}=debug")
+        }
+        3 => {
+            // -vvv: global debug
+            "debug".to_string()
+        }
+        _ => {
+            // -vvvv or more: global trace
+            "trace".to_string()
+        }
+    }
 }
