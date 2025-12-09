@@ -111,7 +111,6 @@ export TLS_MODE=acme
 export TLS_ACME_CHALLENGE=tls-alpn-01
 export TLS_ACME_DIRECTORY_URL=https://acme-v02.api.letsencrypt.org/directory
 export TLS_ACME_EMAIL=
-export TLS_CACHE_DIR=./tls-cache
 export RUST_LOG=axum_dev=info
 
 axum-dev serve
@@ -132,7 +131,6 @@ export TLS_ACME_CHALLENGE=dns-01
 export TLS_ACME_DIRECTORY_URL=https://acme-v02.api.letsencrypt.org/directory
 export TLS_ACME_EMAIL=
 export ACME_DNS_API_BASE=https://auth.acme-dns.io
-export TLS_CACHE_DIR=./tls-cache
 export RUST_LOG=axum_dev=info
 
 ## Register ACME-DNS account 
@@ -153,8 +151,6 @@ export DATABASE_URL=sqlite:data.db
 export AUTH_METHOD=username_password
 export SESSION_SECURE=true
 export TLS_MODE=self-signed
-## If TLS_CACHE_DIR is not set, self-signed certs are ephemeral:
-export TLS_CACHE_DIR=./tls-cache
 export RUST_LOG=axum_dev=info
 
 axum-dev serve

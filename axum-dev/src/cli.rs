@@ -331,17 +331,6 @@ pub struct TlsArgs {
     )]
     pub acme_email: Option<String>,
 
-    /// Directory to store TLS account, certificate, and key data for ACME or self-signed modes.
-    ///
-    /// If tls-mode == self-signed, and this option is unset, it will create ephemeral certificates.
-    #[arg(
-        long = "tls-cache-dir",
-        env = "TLS_CACHE_DIR",
-        value_name = "DIR",
-        help_heading = "TLS"
-    )]
-    pub cache_dir: Option<String>,
-
     /// Validity in days for self-signed certificate.
     /// Used when --tls-mode=self-signed.
     #[arg(
@@ -387,17 +376,6 @@ pub struct AcmeDnsRegisterArgs {
         help_heading = "ACME-DNS"
     )]
     pub api_base: String,
-
-    /// Directory to store acme-dns credentials (defaults to TLS cache dir).
-    ///
-    /// If not set, we will default to "./tls-cache".
-    #[arg(
-        long = "tls-cache-dir",
-        env = "TLS_CACHE_DIR",
-        value_name = "DIR",
-        help_heading = "ACME-DNS"
-    )]
-    pub cache_dir: Option<String>,
 
     /// Optional CIDR ranges allowed to call the acme-dns /update API.
     ///

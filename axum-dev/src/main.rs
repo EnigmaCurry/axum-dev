@@ -67,21 +67,33 @@ where
         Err(e) => {
             debug!("CLI parsing error: kind={:?}, error={}", e.kind(), e);
             match e.kind() {
+                // NEW: no subcommand -> print top-level help to stdout and succeed
+                ErrorKind::MissingSubcommand => {
+                    // Use the same Command builder your test uses
+                    let mut cmd = crate::cli::app();
+                    let _ = cmd.write_help(out);
+                    // Optional: no need for extra newline because the test trims
+                    return Ok(());
+                }
+
+                // Cases where clap already formats the help/version text nicely
                 ErrorKind::DisplayHelp
                 | ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand
                 | ErrorKind::InvalidSubcommand
                 | ErrorKind::UnknownArgument
                 | ErrorKind::DisplayVersion => {
-                    // Let clap format the help/version text.
                     let _ = write!(out, "{e}");
                     return Ok(());
                 }
+
+                // Everything else is a real “invalid args” error
                 _ => {
                     return Err(CliError::InvalidArgs(e.to_string()));
                 }
             }
         }
     };
+
     cli.validate()?;
 
     let log_level = (if cli.verbose {
@@ -194,16 +206,7 @@ fn serve<W1: Write, W2: Write>(
             }
         }
         TlsMode::SelfSigned => {
-            let cache_dir: Option<PathBuf> = {
-                if let Some(dir) = &args.tls.cache_dir {
-                    let p = PathBuf::from(dir);
-                    Some(if p.is_relative() { root_dir.join(p) } else { p })
-                } else {
-                    // Default: persist self-signed material under <root>/tls-cache
-                    Some(root_dir.join("tls-cache"))
-                }
-            };
-
+            let cache_dir = Some(root_dir.join("tls-cache"));
             let sans = args.tls.sans.clone();
             let valid_days = args.tls.self_signed_valid_days;
 
@@ -220,12 +223,7 @@ fn serve<W1: Write, W2: Write>(
         }
         TlsMode::Acme => {
             // Shared bits: cache dir, domains, directory URL, email.
-            let cache_dir: PathBuf = if let Some(dir) = &args.tls.cache_dir {
-                let p = PathBuf::from(dir);
-                if p.is_relative() { root_dir.join(p) } else { p }
-            } else {
-                root_dir.join("tls-cache")
-            };
+            let cache_dir: PathBuf = root_dir.join("tls-cache");
 
             // You may want to ensure the directory exists:
             if let Err(e) = std::fs::create_dir_all(&cache_dir) {
@@ -437,14 +435,7 @@ fn acme_dns_register<W1: Write, W2: Write>(
 ) -> Result<(), CliError> {
     let root_dir = ensure_root_dir(root_dir)?;
     // Where to store creds:
-    // - If --tls-cache-dir / TLS_CACHE_DIR is set, respect it (but make it relative to root_dir when needed).
-    // - Otherwise default to <root_dir>/tls-cache.
-    let cache_dir = if let Some(dir) = &args.cache_dir {
-        let p = PathBuf::from(dir);
-        if p.is_relative() { root_dir.join(p) } else { p }
-    } else {
-        root_dir.join("tls-cache")
-    };
+    let cache_dir = root_dir.join("tls-cache");
 
     if let Err(e) = std::fs::create_dir_all(&cache_dir) {
         return Err(CliError::RuntimeError(format!(

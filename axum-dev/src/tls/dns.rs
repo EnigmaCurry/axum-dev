@@ -80,9 +80,8 @@ impl AcmeDnsProvider {
 
         Err(anyhow!(
             "\n\nError: acme-dns credentials not found in '{}'.\n\n\
-               - Run `{bin} acme-dns-register --acme-dns-api-base <URL> [--tls-cache-dir {}]` first.\n\n\
+               - Run `{bin} acme-dns-register --acme-dns-api-base <URL>` first.\n\n\
              After that, re-run your `serve` command.\n\n",
-            cache_dir.display(),
             cache_dir.display()
         ))
     }

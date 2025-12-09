@@ -15,6 +15,7 @@ ENV_FILE        := env_var_or_default("ENV_FILE", ".env")
 ENV_DIST        := env_var_or_default("ENV_DIST", ".env-dist")
 CARGO_PROFILE   := env_var_or_default("CARGO_PROFILE","release")
 
+HOME         := env_var("HOME")
 APP          := "axum-dev"
 PROJECT_DIR  := ROOT / APP
 MANIFEST     := PROJECT_DIR / "Cargo.toml"
@@ -26,9 +27,8 @@ NPM           := env_var_or_default("NPM", "pnpm")
 DOCKER        := env_var_or_default("DOCKER", "docker")
 DOCKER_IMAGE  := env_var_or_default("DOCKER_IMAGE", "rust-axum-template")
 DOCKER_VOLUME := env_var_or_default("DOCKER_VOLUME", "rust-axum-template")
-INSTANCE      := env_var_or_default("INSTANCE", "default")
-ROOT_DIR      := env_var_or_default("ROOT_DIR", "${APP}-${INSTANCE}-data")
-DATABASE_PATH := ROOT_DIR / "{{INSTANCE}}-data.db"
+ROOT_DIR      := env_var_or_default("ROOT_DIR", HOME / ".local" / "share" / APP)
+DATABASE_PATH := ROOT_DIR / "data.db"
 
 ### Container / app environment :::
 
@@ -70,8 +70,6 @@ TLS_ACME_DIRECTORY_URL := env_var_or_default("TLS_ACME_DIRECTORY_URL","https://a
 TLS_ACME_EMAIL := env_var_or_default("TLS_ACME_EMAIL","")
 # Validity in days for a self-signed certificate.
 TLS_SELF_SIGNED_VALID_DAYS := env_var_or_default("TLS_SELF_SIGNED_VALID_DAYS","3650")
-# Directory to store TLS account, certificate, and key data for ACME or self-signed modes.
-TLS_CACHE_DIR := env_var_or_default("TLS_CACHE_DIR","./tls-cache")
 
 # print help for Just targets
 help:
