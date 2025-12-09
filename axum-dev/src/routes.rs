@@ -21,7 +21,7 @@ pub mod user;
 pub mod whoami;
 
 pub fn router(
-    hdr_auth_cfg: trusted_header_auth::AuthConfig,
+    hdr_auth_cfg: trusted_header_auth::ForwardAuthConfig,
     fwd_for_cfg: trusted_forwarded_for::TrustedForwardedForConfig,
     state: AppState,
 ) -> Router<AppState> {

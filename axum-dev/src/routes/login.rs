@@ -23,7 +23,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use tower_sessions::Session;
 
-pub fn router(user_cfg: trusted_header_auth::AuthConfig) -> ApiRouter<AppState> {
+pub fn router(user_cfg: trusted_header_auth::ForwardAuthConfig) -> ApiRouter<AppState> {
     match user_cfg.method {
         AuthenticationMethod::ForwardAuth => trusted_header_router(user_cfg),
         AuthenticationMethod::UsernamePassword => username_password_router(),
@@ -39,7 +39,7 @@ struct PasswordLoginRequest {
     password: String,
 }
 
-fn trusted_header_router(user_cfg: trusted_header_auth::AuthConfig) -> ApiRouter<AppState> {
+fn trusted_header_router(user_cfg: trusted_header_auth::ForwardAuthConfig) -> ApiRouter<AppState> {
     ApiRouter::<AppState>::new()
         .api_route(
             "/api/login",

@@ -13,7 +13,7 @@ use std::str::FromStr;
 pub struct TrustedForwardedForConfig {
     pub enabled: bool,
     pub header_name: HeaderName,
-    pub trusted_proxy: IpAddr,
+    pub trusted_proxy: Option<IpAddr>,
 }
 
 impl TrustedForwardedForConfig {
@@ -23,7 +23,8 @@ impl TrustedForwardedForConfig {
         Self {
             enabled: false,
             header_name: HeaderName::from_static("x-forwarded-for"),
-            trusted_proxy: IpAddr::from([127, 0, 0, 1]),
+            // None => no trusted proxy configured; feature effectively off.
+            trusted_proxy: None,
         }
     }
 }
@@ -68,15 +69,31 @@ pub async fn trusted_forwarded_for(
     // ------------------------------------------------------------------------
     // 2️⃣  Enabled mode – sanity-check the sender.
     // ------------------------------------------------------------------------
-    // Header sent by *any* untrusted source → reject.
-    if peer.ip() != cfg.trusted_proxy && req.headers().contains_key(&cfg.header_name) {
-        tracing::warn!(
-            "trusted forwarded-for: rejecting spoofed header '{}' from untrusted peer {} (expected {})",
-            cfg.header_name,
-            peer.ip(),
-            cfg.trusted_proxy
-        );
-        return StatusCode::FORBIDDEN.into_response();
+    match cfg.trusted_proxy {
+        Some(proxy) => {
+            // Header sent by *any* untrusted source → reject.
+            if peer.ip() != proxy && req.headers().contains_key(&cfg.header_name) {
+                tracing::warn!(
+                    "trusted forwarded-for: rejecting spoofed header '{}' from untrusted peer {} (expected {})",
+                    cfg.header_name,
+                    peer.ip(),
+                    proxy
+                );
+                return StatusCode::FORBIDDEN.into_response();
+            }
+        }
+        None => {
+            // Misconfig: enabled but no proxy configured.
+            // Easiest safe behavior: reject if header present from anybody.
+            if req.headers().contains_key(&cfg.header_name) {
+                tracing::warn!(
+                    "trusted forwarded-for is enabled but no trusted_proxy configured; rejecting header '{}' from peer {}",
+                    cfg.header_name,
+                    peer.ip()
+                );
+                return StatusCode::FORBIDDEN.into_response();
+            }
+        }
     }
 
     // ------------------------------------------------------------------------
@@ -114,7 +131,7 @@ pub async fn trusted_forwarded_for(
             // Header present but unparsable → 400 Bad Request.
             if req.headers().contains_key(&cfg.header_name) {
                 tracing::debug!(
-                    "trusted forwarded-for: header '{}' from trusted proxy {} could not be parsed",
+                    "trusted forwarded-for: header '{}' from peer {} could not be parsed",
                     cfg.header_name,
                     peer.ip()
                 );

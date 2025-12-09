@@ -1,6 +1,6 @@
 use crate::{
     middleware::{
-        trusted_forwarded_for::TrustedForwardedForConfig, trusted_header_auth::AuthConfig,
+        trusted_forwarded_for::TrustedForwardedForConfig, trusted_header_auth::ForwardAuthConfig,
     },
     prelude::*,
     routes::router,
@@ -77,7 +77,7 @@ pub enum TlsConfig {
 /// Run the HTTP server until shutdown.
 pub async fn run(
     addr: SocketAddr,
-    user_cfg: AuthConfig,
+    user_cfg: ForwardAuthConfig,
     fwd_cfg: TrustedForwardedForConfig,
     db_url: String,
     session_secure: bool,
