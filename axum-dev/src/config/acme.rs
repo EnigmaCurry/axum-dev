@@ -1,16 +1,16 @@
 use clap::{self, ArgAction, Args, CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_serde_derive::ClapSerde;
 
-#[derive(Args, Debug)]
+#[derive(ClapSerde, Args, Debug)]
 pub struct AcmeDnsRegisterConfig {
     /// Base URL of the acme-dns API (e.g. https://auth.acme-dns.io).
     #[arg(
         long = "acme-dns-api-base",
         env = "ACME_DNS_API_BASE",
         value_name = "URL",
-        default_value = "https://auth.acme-dns.io",
         help_heading = "ACME-DNS"
     )]
+    #[default("https://auth.acme-dns.io".to_string())]
     pub api_base: String,
 
     /// Optional CIDR ranges allowed to call the acme-dns /update API.

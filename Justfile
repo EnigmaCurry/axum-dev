@@ -30,47 +30,6 @@ DOCKER_VOLUME := env_var_or_default("DOCKER_VOLUME", "rust-axum-template")
 ROOT_DIR      := env_var_or_default("ROOT_DIR", HOME / ".local" / "share" / APP)
 DATABASE_PATH := ROOT_DIR / "data.db"
 
-### Container / app environment :::
-
-# Network
-NET_LISTEN_IP   := env_var_or_default("NET_LISTEN_IP", "0.0.0.0")
-NET_LISTEN_PORT := env_var_or_default("NET_LISTEN_PORT", "3000")
-APP_HOST        := env_var_or_default("APP_HOST", "change-me.example.com")
-
-# Authentication / trusted headers
-AUTH_TRUSTED_PROXY              := env_var_or_default("AUTH_TRUSTED_PROXY", "127.0.0.1")
-# Set auth method: username_password or forward_auth
-AUTH_METHOD                     := env_var_or_default("AUTH_METHOD", "username_password")
-AUTH_TRUSTED_HEADER_NAME        := env_var_or_default("AUTH_TRUSTED_HEADER_NAME", "X-Forwarded-User")
-AUTH_TRUSTED_HEADER_AUTH_GROUP  := env_var_or_default("TRUSTED_HEADER_AUTH_GROUP", "admin")
-
-AUTH_TRUSTED_FORWARDED_FOR      := env_var_or_default("AUTH_TRUSTED_FORWARDED_FOR", "false")
-AUTH_TRUSTED_FORWARDED_FOR_NAME := env_var_or_default("AUTH_TRUSTED_FORWARDED_FOR_NAME", "X-Forwarded-For")
-
-# Session
-SESSION_SECURE          := env_var_or_default("SESSION_SECURE", "true")
-SESSION_EXPIRY_SECONDS  := env_var_or_default("SESSION_EXPIRY_SECONDS", "604800")
-SESSION_CHECK_SECONDS   := env_var_or_default("SESSION_CHECK_SECONDS", "60")
-
-# TLS
-TLS_MODE := env_var_or_default("TLS_MODE","self-signed")
-# Path to TLS certificate (PEM) only used when TLS_MODE=manual.
-TLS_CERT_PATH := env_var_or_default("TLS_CERT_PATH","cert.pem")
-# Path to TLS private key (PEM) only used when TLS_MODE=manual.
-TLS_KEY_PATH := env_var_or_default("TLS_KEY_PATH","key.pem")
-# Additional DNS SubjectAltNames (SANs) for the TLS certificate.
-# APP_HOST is always used as the primary Common Name (CN).
-# Comma-separated list.
-TLS_SANS := env_var_or_default("TLS_SANS","")
-# ACME challenge type to use: tls-alpn-01, http-01, or dns-01.
-TLS_ACME_CHALLENGE := env_var_or_default("TLS_ACME_CHALLENGE","tls-alpn-01")
-# ACME directory URL. Default is Let's Encrypt production.
-TLS_ACME_DIRECTORY_URL := env_var_or_default("TLS_ACME_DIRECTORY_URL","https://acme-v02.api.letsencrypt.org/directory")
-# Contact email for ACME registration.
-TLS_ACME_EMAIL := env_var_or_default("TLS_ACME_EMAIL","")
-# Validity in days for a self-signed certificate.
-TLS_SELF_SIGNED_VALID_DAYS := env_var_or_default("TLS_SELF_SIGNED_VALID_DAYS","3650")
-
 # print help for Just targets
 help:
     @just -l
@@ -293,7 +252,7 @@ build-docker: _env_check
     echo "Tagged updated image ${DOCKER_IMAGE}"
 
 # Serve the app by itself as a standalone binary
-serve *args: _env_check build
+serve *args: _env_check
     cd {{PROJECT_DIR}} && \
     AUTH_TRUSTED_FORWARDED_FOR=false \
     just run serve {{args}}

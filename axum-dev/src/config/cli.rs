@@ -45,8 +45,11 @@ pub struct Cli {
     pub root_dir: PathBuf,
 
     /// Config file
-    #[arg(long = "config", env = "CONFIG_FILE", default_value = "config.toml")]
-    pub config_file: std::path::PathBuf,
+    ///
+    /// Defaults to `defaults.toml` in the specified ROOT_DIR, but only
+    /// if it exists.
+    #[arg(short = 'f', long = "config", env = "CONFIG_FILE")]
+    pub config_file: Option<std::path::PathBuf>,
 
     #[command(subcommand)]
     pub command: Commands,

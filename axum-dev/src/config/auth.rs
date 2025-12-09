@@ -10,7 +10,6 @@ pub struct AuthConfig {
         long = "auth-method",
         env = "AUTH_METHOD",
         value_name = "METHOD",
-        default_value = "forward_auth",
         help_heading = "Authentication"
     )]
     pub authentication_method: AuthenticationMethod,
@@ -20,9 +19,9 @@ pub struct AuthConfig {
         long = "auth-trusted-header-name",
         env = "AUTH_TRUSTED_HEADER_NAME",
         value_name = "HEADER",
-        default_value = "X-Forwarded-User",
         help_heading = "Authentication"
     )]
+    #[default("X-Forwarded-For".to_string())]
     pub trusted_header_name: String,
 
     /// Only trust the header when the TCP peer IP matches this proxy.
@@ -48,9 +47,9 @@ pub struct AuthConfig {
         long = "auth-trusted-forwarded-for-name",
         env = "AUTH_TRUSTED_FORWARDED_FOR_NAME",
         value_name = "HEADER",
-        default_value = "X-Forwarded-For",
         help_heading = "Authentication"
     )]
+    #[default("X-Forwarded-For".to_string())]
     pub trusted_forwarded_for_name: String,
 }
 

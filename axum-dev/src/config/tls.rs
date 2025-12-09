@@ -91,9 +91,9 @@ pub struct TlsConfig {
         long = "tls-acme-directory-url",
         env = "TLS_ACME_DIRECTORY_URL",
         value_name = "URL",
-        default_value = "https://acme-v02.api.letsencrypt.org/directory",
         help_heading = "TLS"
     )]
+    #[default("https://acme-v02.api.letsencrypt.org/directory".to_string())]
     pub acme_directory_url: String,
 
     /// Contact email for ACME registration when --tls-mode=acme.
@@ -119,9 +119,9 @@ pub struct TlsConfig {
         long = "acme-dns-api-base",
         env = "ACME_DNS_API_BASE",
         value_name = "URL",
-        default_value = "https://auth.acme-dns.io",
         help_heading = "ACME-DNS"
     )]
+    #[default("https://auth.acme-dns.io".to_string())]
     pub acme_dns_api_base: String,
 }
 

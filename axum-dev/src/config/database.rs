@@ -8,8 +8,7 @@ pub struct DatabaseConfig {
         long = "database-url",
         env = "DATABASE_URL",
         value_name = "URL",
-        default_value = "sqlite:data.db",
         help_heading = "Database"
     )]
-    pub database_url: String,
+    pub database_url: Option<String>,
 }

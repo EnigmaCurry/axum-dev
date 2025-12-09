@@ -2,7 +2,7 @@ use axum::http::HeaderName;
 use clap::{CommandFactory, Parser, error::ErrorKind};
 use clap_complete::shells::Shell;
 use clap_serde_derive::ClapSerde;
-use config::{AcmeDnsRegisterConfig, TlsAcmeChallenge, TlsMode};
+use config::{AcmeDnsRegisterConfig, AppConfigOpt, TlsAcmeChallenge, TlsMode};
 use config::{AppConfig, build_log_level};
 use errors::CliError;
 use middleware::auth::AuthenticationMethod;
@@ -107,30 +107,53 @@ where
         Commands::Serve(mut serve_args) => {
             let root_dir = ensure_root_dir(cli.root_dir.clone())?;
 
+            // Decide which config path to use:
+            // - If user provided -f/--config or CONFIG_FILE -> use that (explicit = true)
+            // - Otherwise -> <root_dir>/defaults.toml (explicit = false)
+            let (config_path, explicit) = if let Some(ref p) = cli.config_file {
+                (p.clone(), true)
+            } else {
+                (root_dir.join("defaults.toml"), false)
+            };
+
             // 1. Read config file into AppConfig::Opt
-            let path = &cli.config_file;
-            let file_opt: <AppConfig as ClapSerde>::Opt = if path.exists() {
+            let file_opt: AppConfigOpt = if config_path.exists() {
+                info!("Loading config file: {}", config_path.display());
+
                 let mut s = String::new();
-                File::open(path)
+                File::open(&config_path)
                     .and_then(|f| BufReader::new(f).read_to_string(&mut s))
                     .map_err(|e| {
                         CliError::RuntimeError(format!(
                             "Error reading configuration file {}: {e}",
-                            path.display()
+                            config_path.display()
                         ))
                     })?;
 
                 toml::from_str(&s).map_err(|e| {
                     CliError::RuntimeError(format!(
                         "Error in configuration file {}: {e}",
-                        path.display()
+                        config_path.display()
                     ))
                 })?
             } else {
-                Default::default()
+                if explicit {
+                    // User explicitly asked for a config file that doesn't exist -> error.
+                    return Err(CliError::RuntimeError(format!(
+                        "Configuration file not found: {}",
+                        config_path.display()
+                    )));
+                } else {
+                    // Implicit default (<root_dir>/defaults.toml) missing -> just use defaults.
+                    info!(
+                        "Factory default values loaded (config file does not exist: {})",
+                        config_path.display()
+                    );
+                    Default::default()
+                }
             };
 
-            // 2. Merge: CLI/env > config.toml > defaults
+            // 2. Merge: CLI/env > defaults.toml > defaults
             let app_cfg: AppConfig = AppConfig::from(file_opt).merge(&mut serve_args.config_cli);
 
             // 3. Validate the merged config (eg TLS constraints)
@@ -345,14 +368,16 @@ fn serve<W1: Write, W2: Write>(
     };
 
     // --- Database + session config ---
-    let mut db_url = cfg.clone().database.database_url;
-
-    // Only rewrite the default dev URL; if the user explicitly set DATABASE_URL,
-    // we assume they know what they’re doing.
-    if db_url == "sqlite:data.db" {
-        let db_path = root_dir.join("data.db");
-        db_url = format!("sqlite://{}", db_path.display());
-    }
+    let db_url = match cfg.clone().database.database_url {
+        // Rewrite the default database path:
+        None => {
+            let db_path = root_dir.join("data.db");
+            format!("sqlite://{}", db_path.display())
+        }
+        // If the user explicitly set DATABASE_URL,
+        // we assume they know what they’re doing.
+        Some(url) => url,
+    };
 
     let session_secure = cfg.session.session_secure;
     let session_expiry_secs = cfg.session.session_expiry_seconds;
@@ -422,8 +447,8 @@ fn serve<W1: Write, W2: Write>(
     }
 
     debug!("serve(): parsed cfg = {:?}", cfg.clone());
-    info!("Server will listen on {addr} (from {addr_str})");
-    info!("Database URL: {db_url}");
+    info!("Server will listen on {addr}");
+    info!("Database URL: {db_url:?}");
     debug!(
         "Session config: secure={}, expiry_secs={}, check_secs={}",
         session_secure, session_expiry_secs, session_check_secs
