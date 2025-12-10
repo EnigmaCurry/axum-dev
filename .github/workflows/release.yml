@@ -172,18 +172,18 @@ jobs:
             bin: axum-dev
             name: Linux-aarch64
             command: build
-          - release_for: macOS-x86_64
-            os: macOS-latest
-            target: x86_64-apple-darwin
-            bin: axum-dev
-            name: Darwin-x86_64
-            command: build
-          - release_for: macOS-arm64
-            os: macOS-latest
-            target: aarch64-apple-darwin
-            bin: axum-dev
-            name: Darwin-arm64
-            command: build
+          # - release_for: macOS-x86_64
+          #   os: macOS-latest
+          #   target: x86_64-apple-darwin
+          #   bin: axum-dev
+          #   name: Darwin-x86_64
+          #   command: build
+          # - release_for: macOS-arm64
+          #   os: macOS-latest
+          #   target: aarch64-apple-darwin
+          #   bin: axum-dev
+          #   name: Darwin-arm64
+          #   command: build
 
   release:
     name: Release
