@@ -10,7 +10,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  PROJECT_DIR: ${APP}
+  PROJECT_DIR: axum-dev
 
 jobs:
   frontend:
@@ -77,7 +77,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('${APP}/Cargo.lock.no-version') }}
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('axum-dev/Cargo.lock.no-version') }}
           restore-keys: |
             ${{ runner.os }}-cargo-registry-
 
@@ -159,25 +159,25 @@ jobs:
           - release_for: Linux-x86_64
             os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            bin: ${APP}
+            bin: axum-dev
             name: Linux-x86_64
             command: build
           - release_for: Linux-aarch64
             os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
-            bin: ${APP}
+            bin: axum-dev
             name: Linux-aarch64
             command: build
           # - release_for: macOS-x86_64
           #   os: macOS-latest
           #   target: x86_64-apple-darwin
-          #   bin: ${APP}
+          #   bin: axum-dev
           #   name: Darwin-x86_64
           #   command: build
           # - release_for: macOS-arm64
           #   os: macOS-latest
           #   target: aarch64-apple-darwin
-          #   bin: ${APP}
+          #   bin: axum-dev
           #   name: Darwin-arm64
           #   command: build
 
@@ -197,7 +197,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         with:
           files: |
-            **/${APP}-v*.tar.gz
+            **/axum-dev-v*.tar.gz
 
   docker:
     name: Docker image (linux/amd64, linux/arm64)
@@ -226,11 +226,11 @@ jobs:
           mkdir -p ${{ env.PROJECT_DIR }}/dist/linux-amd64 ${{ env.PROJECT_DIR }}/dist/linux-arm64
 
           # Find and unpack the linux tarballs
-          for f in artifacts/**/${APP}-v*-Linux-x86_64.tar.gz; do
+          for f in artifacts/**/axum-dev-v*-Linux-x86_64.tar.gz; do
             tar -xzf "$f" -C ${{ env.PROJECT_DIR }}/dist/linux-amd64
           done
 
-          for f in artifacts/**/${APP}-v*-Linux-aarch64.tar.gz; do
+          for f in artifacts/**/axum-dev-v*-Linux-aarch64.tar.gz; do
             tar -xzf "$f" -C ${{ env.PROJECT_DIR }}/dist/linux-arm64
           done
 
