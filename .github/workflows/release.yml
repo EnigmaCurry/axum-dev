@@ -136,12 +136,14 @@ jobs:
       - name: List workspace files
         run: |
           pwd
-          ls -R .
+          ls -R target/${{ matrix.platform.target }}
         working-directory: ${{ github.workspace }}
 
-      - name: move binary path
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: mv target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }} .
+      - name: move binary into crate dir
+        working-directory: ${{ github.workspace }}
+        run: |
+          mv target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }} \
+             ${{ env.PROJECT_DIR }}/
 
       - name: Package as archive
         shell: bash
