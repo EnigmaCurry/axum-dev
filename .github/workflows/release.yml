@@ -133,12 +133,6 @@ jobs:
           args: "--bin ${{ matrix.platform.bin }} --locked --release"
           working-directory: ${{ env.PROJECT_DIR }}
 
-      - name: List workspace files
-        run: |
-          pwd
-          ls -R target/${{ matrix.platform.target }}
-        working-directory: ${{ github.workspace }}
-
       - name: move binary into crate dir
         working-directory: ${{ github.workspace }}
         run: |
