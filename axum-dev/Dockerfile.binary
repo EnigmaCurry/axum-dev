@@ -1,0 +1,31 @@
+# ---- Runtime only --------------------------------------------
+FROM debian:trixie-slim AS runtime
+LABEL org.opencontainers.image.source="https://github.com/enigmacurry/axum-dev"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates coreutils sqlite3 && \
+    rm -rf /var/lib/apt/lists/*
+
+ARG USER=appuser UID=1001 GID=1001
+RUN groupadd --gid "$GID" "$USER" \
+ && useradd  --uid "$UID" \
+             --gid "$GID" \
+             --create-home \
+             --shell /usr/sbin/nologin \
+             "$USER"
+
+# buildx provides TARGETOS/TARGETARCH automatically
+ARG TARGETOS
+ARG TARGETARCH
+
+# Map buildx arch names to your dist folder names
+# TARGETARCH is "amd64" or "arm64"
+COPY dist/${TARGETOS}-${TARGETARCH}/axum-dev /usr/local/bin/axum-dev
+
+RUN mkdir /data && chown ${USER} /data
+VOLUME /data
+ENV ROOT_DIR=/data NET_LISTEN_IP=0.0.0.0 NET_LISTEN_PORT=3000
+
+USER $USER
+
+ENTRYPOINT ["axum-dev"]

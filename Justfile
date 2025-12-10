@@ -249,7 +249,7 @@ build-frontend: _env_check
 # Build docker image
 build-docker: _env_check
     ${DOCKER} build -f {{APP}}/Dockerfile -t ${DOCKER_IMAGE} --build-arg CARGO_PROFILE="{{CARGO_PROFILE}}" .
-    echo "Tagged updated image ${DOCKER_IMAGE}"
+    @echo "Tagged updated image ${DOCKER_IMAGE}"
 
 # Serve the app by itself as a standalone binary
 serve *args: _env_check
