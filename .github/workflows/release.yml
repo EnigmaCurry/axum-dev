@@ -61,7 +61,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: frontend-build
-          path: ${{ github.workspace }}
+          path: ${{ github.workspace }}/frontend/build
 
       - name: List workspace files
         run: |
