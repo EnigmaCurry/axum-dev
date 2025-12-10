@@ -63,12 +63,6 @@ jobs:
           name: frontend-build
           path: ${{ github.workspace }}/frontend/build
 
-      - name: List workspace files
-        run: |
-          pwd
-          ls -R .
-        working-directory: ${{ github.workspace }}
-
       - name: Update Rust stable
         run: rustup toolchain install stable
         working-directory: ${{ env.PROJECT_DIR }}
@@ -138,6 +132,12 @@ jobs:
           target: ${{ matrix.platform.target }}
           args: "--bin ${{ matrix.platform.bin }} --locked --release"
           working-directory: ${{ env.PROJECT_DIR }}
+
+      - name: List workspace files
+        run: |
+          pwd
+          ls -R .
+        working-directory: ${{ github.workspace }}
 
       - name: move binary path
         working-directory: ${{ env.PROJECT_DIR }}
