@@ -137,7 +137,6 @@ jobs:
           command: ${{ matrix.platform.command }}
           target: ${{ matrix.platform.target }}
           args: "--bin ${{ matrix.platform.bin }} --locked --release"
-          strip: true
           working-directory: ${{ env.PROJECT_DIR }}
 
       - name: move binary path
