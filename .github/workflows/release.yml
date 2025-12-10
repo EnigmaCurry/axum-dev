@@ -44,7 +44,7 @@ jobs:
           tool: just
 
       - name: Build frontend
-        run: just build-frontend
+        run: just config build-frontend
         # run at repo root, since `frontend/` is a sibling of axum-dev
 
       - name: Upload frontend build
