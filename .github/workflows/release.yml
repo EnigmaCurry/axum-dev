@@ -66,7 +66,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: frontend-build
-          path: .  # will restore to ./frontend/build
+          path: ..  # will restore to ../frontend/build
 
       - name: Update Rust stable
         run: rustup toolchain install stable
