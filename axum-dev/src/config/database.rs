@@ -1,14 +1,10 @@
-use clap::{self, ArgAction, Args, CommandFactory, Parser, Subcommand, ValueEnum};
-use clap_serde_derive::ClapSerde;
+use conf::Conf;
+use serde::{Deserialize, Serialize};
 
-#[derive(ClapSerde, Args, Debug, Clone)]
+#[derive(Conf, Debug, Clone, Serialize, Deserialize)]
+#[conf(serde)]
 pub struct DatabaseConfig {
     /// Database URL for sqlx (or set DATABASE_URL).
-    #[arg(
-        long = "database-url",
-        env = "DATABASE_URL",
-        value_name = "URL",
-        help_heading = "Database"
-    )]
+    #[arg(long = "database-url", env = "DATABASE_URL")]
     pub database_url: Option<String>,
 }

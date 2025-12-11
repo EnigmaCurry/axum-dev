@@ -1,12 +1,12 @@
-use clap::{self, ArgAction, Args, CommandFactory, Parser, Subcommand, ValueEnum};
-
 use crate::errors::CliError;
 
-use super::{AppConfigOpt, AuthConfig, DatabaseConfig, NetworkConfig, SessionConfig, TlsConfig};
+use super::{AppConfig, AuthConfig, DatabaseConfig, NetworkConfig, SessionConfig, TlsConfig};
+use conf::Conf;
 
-#[derive(Args)]
+#[derive(Conf, Debug, Clone)]
+#[conf(serde)]
 pub struct ServeConfig {
     /// CLI/env overrides for the server config.
-    #[command(flatten)]
-    pub config_cli: AppConfigOpt,
+    #[conf(flatten)]
+    pub app: AppConfig,
 }

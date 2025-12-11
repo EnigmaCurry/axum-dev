@@ -1,57 +1,35 @@
-use clap::{self, ArgAction, Args, CommandFactory, Parser, Subcommand, ValueEnum};
-use clap_serde_derive::ClapSerde;
-
 use std::{env, path::PathBuf};
 
 use crate::errors::CliError;
 
 use super::{AcmeDnsRegisterConfig, ServeConfig};
+use conf::{Conf, Subcommands};
 
-#[derive(Parser)]
-#[command(
-    name = env!("CARGO_BIN_NAME"),
-    version = env!("CARGO_PKG_VERSION"),
-    author = env!("CARGO_PKG_AUTHORS"),
-    about = env!("CARGO_PKG_DESCRIPTION"),
-    propagate_version = true
-)]
+#[derive(Conf, Debug, Clone)]
+#[conf(serde)]
 pub struct Cli {
     /// Sets the log level, overriding the RUST_LOG environment variable.
-    #[arg(
-        long,
-        global = true,
-        value_name = "LEVEL",
-        value_parser = ["trace", "debug", "info", "warn", "error"]
-    )]
+    #[arg(long)]
     pub log: Option<String>,
 
-    /// Increase verbosity (-v, -vv, -vvv, -vvvv)
-    #[arg(short = 'v', global = true, action = ArgAction::Count)]
+    /// Increase verbosity. You can keep your existing semantics,
+    /// or simplify this to `bool` and adjust `build_log_level`.
+    #[arg(short = 'v')]
+    #[conf(default(0u8))]
     pub verbose: u8,
 
-    /// Base directory for config + state (like `-C` in many GNU tools).
-    ///
-    /// When set, relative paths for the database, TLS cache, ACME accounts,
-    /// and acme-dns credentials are resolved under this directory, and the
-    /// directory is created if needed.
-    #[arg(
-        short = 'C',
-        long = "root-dir",
-        env = "ROOT_DIR",
-        global = true,
-        default_value = default_root_dir().into_os_string(),
-        value_name = "DIR",
-    )]
+    /// Base directory for config + state.
+    #[arg(short = 'C', long = "root-dir", env = "ROOT_DIR")]
+    #[conf(serde(skip))]
     pub root_dir: PathBuf,
 
-    /// Config file
-    ///
-    /// Defaults to `defaults.toml` in the specified ROOT_DIR, but only
-    /// if it exists.
+    /// Config file (e.g. defaults.toml in ROOT_DIR)
     #[arg(short = 'f', long = "config", env = "CONFIG_FILE")]
-    pub config_file: Option<std::path::PathBuf>,
+    #[conf(serde(skip))]
+    pub config_file: Option<PathBuf>,
 
-    #[command(subcommand)]
+    /// Subcommands.
+    #[conf(subcommands)]
     pub command: Commands,
 }
 
@@ -60,21 +38,14 @@ impl Cli {
         match &self.command {
             // we now validate Serve *after* merging config in run_cli
             Commands::Serve(_) => Ok(()),
-            Commands::Completions { .. } => Ok(()),
             Commands::AcmeDnsRegister { .. } => Ok(()),
         }
     }
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommands, Debug, Clone)]
+#[conf(serde)]
 pub enum Commands {
-    /// Generates shell completions script (tab completion).
-    Completions {
-        /// The shell to generate completions for.
-        #[arg(value_parser = ["bash", "zsh", "fish"])]
-        shell: Option<String>,
-    },
-
     /// Run the HTTP API server.
     Serve(ServeConfig),
 
@@ -105,8 +76,4 @@ fn default_root_dir() -> PathBuf {
 
     // 3) Last resort: current directory / <bin>-data
     PathBuf::from(format!("{bin}-data"))
-}
-
-pub fn app() -> clap::Command {
-    Cli::command()
 }

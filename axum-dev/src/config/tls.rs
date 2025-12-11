@@ -1,127 +1,135 @@
 use std::path::PathBuf;
 
-use clap::{Args, ValueEnum};
-use clap_serde_derive::ClapSerde;
-use serde::Deserialize;
+use conf::Conf;
+use serde::{Deserialize, Serialize};
 
 use crate::errors::CliError;
 
-#[derive(Default, Copy, Clone, Debug, Eq, PartialEq, ValueEnum, Deserialize)]
+use std::{fmt, str::FromStr};
+
+use super::StringList;
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum TlsMode {
     /// No TLS – listen on plain HTTP only.
-    #[default]
     None,
     /// Use local certificate and private key files.
     Manual,
     /// Use ACME (Let's Encrypt, etc.) for automatic TLS certificates.
     Acme,
     /// Use a self-signed certificate generated at startup.
-    #[value(name = "self-signed")]
     SelfSigned,
 }
 
-#[derive(Default, Deserialize, Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
+impl fmt::Display for TlsMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            TlsMode::None => "none",
+            TlsMode::Manual => "manual",
+            TlsMode::Acme => "acme",
+            TlsMode::SelfSigned => "self-signed",
+        };
+        write!(f, "{s}")
+    }
+}
+
+impl FromStr for TlsMode {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "none" => Ok(TlsMode::None),
+            "manual" => Ok(TlsMode::Manual),
+            "acme" => Ok(TlsMode::Acme),
+            "self-signed" => Ok(TlsMode::SelfSigned),
+            other => Err(format!(
+                "invalid TLS mode '{other}', expected one of: none, manual, acme, self-signed"
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum TlsAcmeChallenge {
-    /// Use the TLS-ALPN-01 challenge type.
-    #[value(name = "tls-alpn-01")]
-    #[default]
     TlsAlpn01,
-
-    /// Use the HTTP-01 challenge type.
-    #[value(name = "http-01")]
     Http01,
-
-    /// Use the DNS-01 challenge type.
-    #[value(name = "dns-01")]
     Dns01,
 }
 
-#[derive(ClapSerde, Args, Debug, Clone)]
+impl fmt::Display for TlsAcmeChallenge {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            TlsAcmeChallenge::TlsAlpn01 => "tls-alpn-01",
+            TlsAcmeChallenge::Http01 => "http-01",
+            TlsAcmeChallenge::Dns01 => "dns-01",
+        };
+        write!(f, "{s}")
+    }
+}
+
+impl FromStr for TlsAcmeChallenge {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "tls-alpn-01" => Ok(TlsAcmeChallenge::TlsAlpn01),
+            "http-01" => Ok(TlsAcmeChallenge::Http01),
+            "dns-01" => Ok(TlsAcmeChallenge::Dns01),
+            other => Err(format!(
+                "invalid ACME challenge '{other}', expected one of: tls-alpn-01, http-01, dns-01"
+            )),
+        }
+    }
+}
+
+#[derive(Conf, Debug, Clone, Serialize, Deserialize)]
+#[conf(serde)]
 pub struct TlsConfig {
     /// TLS mode to use: none, manual, acme, or self-signed.
-    #[arg(long = "tls-mode", env = "TLS_MODE", value_enum, help_heading = "TLS")]
-    #[default(TlsMode::None)]
+    #[arg(long = "tls-mode", env = "TLS_MODE")]
+    #[conf(default(TlsMode::None))]
     pub mode: TlsMode,
 
     /// Path to TLS certificate (PEM) when --tls-mode=manual.
-    #[arg(
-        long = "tls-cert-path",
-        env = "TLS_CERT_PATH",
-        value_name = "FILE",
-        help_heading = "TLS"
-    )]
+    #[arg(long = "tls-cert-path", env = "TLS_CERT_PATH")]
     pub cert_path: Option<PathBuf>,
 
     /// Path to TLS private key (PEM) when --tls-mode=manual.
-    #[arg(
-        long = "tls-key-path",
-        env = "TLS_KEY_PATH",
-        value_name = "FILE",
-        help_heading = "TLS"
-    )]
+    #[arg(long = "tls-key-path", env = "TLS_KEY_PATH")]
     pub key_path: Option<PathBuf>,
 
     /// Additional DNS SubjectAltNames (SANs) for the TLS certificate.
     ///
     /// APP_HOST is used as the primary Common Name (CN); these names are added
     /// as SubjectAltNames. Used for ACME and self-signed modes.
-    #[arg(
-        long = "tls-san",
-        env = "TLS_SANS",
-        value_name = "DNSNAME",
-        num_args = 0..,
-        value_delimiter = ',',
-        help_heading = "TLS"
-    )]
-    pub sans: Vec<String>,
+    #[arg(long = "tls-san", env = "TLS_SANS")]
+    pub sans: StringList,
 
     /// ACME challenge type to use when --tls-mode=acme.
-    #[arg(
-        long = "tls-acme-challenge",
-        env = "TLS_ACME_CHALLENGE",
-        value_enum,
-        help_heading = "TLS"
-    )]
-    #[default(TlsAcmeChallenge::TlsAlpn01)]
+    #[arg(long = "tls-acme-challenge", env = "TLS_ACME_CHALLENGE")]
+    #[conf(default(TlsAcmeChallenge::TlsAlpn01))]
     pub acme_challenge: TlsAcmeChallenge,
 
     /// ACME directory URL (e.g. Let's Encrypt).
     /// Only used when --tls-mode=acme.
-    #[arg(
-        long = "tls-acme-directory-url",
-        env = "TLS_ACME_DIRECTORY_URL",
-        value_name = "URL",
-        help_heading = "TLS"
-    )]
-    #[default("https://acme-v02.api.letsencrypt.org/directory".to_string())]
+    #[arg(long = "tls-acme-directory-url", env = "TLS_ACME_DIRECTORY_URL")]
+    #[conf(default("https://acme-v02.api.letsencrypt.org/directory".to_string()))]
     pub acme_directory_url: String,
 
     /// Contact email for ACME registration when --tls-mode=acme.
-    #[arg(
-        long = "tls-acme-email",
-        env = "TLS_ACME_EMAIL",
-        value_name = "EMAIL",
-        help_heading = "TLS"
-    )]
+    #[arg(long = "tls-acme-email", env = "TLS_ACME_EMAIL")]
     pub acme_email: Option<String>,
 
     /// Validity in days for self-signed certificate.
     /// Used when --tls-mode=self-signed.
     #[arg(
         long = "tls-self-signed-valid-days",
-        env = "TLS_SELF_SIGNED_VALID_DAYS",
-        value_name = "DAYS",
-        help_heading = "TLS"
+        env = "TLS_SELF_SIGNED_VALID_DAYS"
     )]
-    #[default(365)]
+    #[conf(default(365))]
     pub self_signed_valid_days: u32,
-    #[arg(
-        long = "acme-dns-api-base",
-        env = "ACME_DNS_API_BASE",
-        value_name = "URL",
-        help_heading = "ACME-DNS"
-    )]
-    #[default("https://auth.acme-dns.io".to_string())]
+    #[arg(long = "acme-dns-api-base", env = "ACME_DNS_API_BASE")]
+    #[conf(default("https://auth.acme-dns.io".to_string()))]
     pub acme_dns_api_base: String,
 }
 
