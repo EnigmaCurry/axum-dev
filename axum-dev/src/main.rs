@@ -54,55 +54,64 @@ fn init_tracing(log_level: &str) {
         .ok();
 }
 
-pub fn run_cli<I, S, W1, W2>(args: I, out: &mut W1, err: &mut W2) -> Result<(), CliError>
+pub fn run_cli<I, S, W1, W2>(args: I, out: &mut W1, _err: &mut W2) -> Result<(), CliError>
 where
     I: IntoIterator<Item = S>,
     S: Into<std::ffi::OsString> + Clone,
     W1: Write,
     W2: Write,
 {
-    // We need the args twice (for parsing and for "no subcommand" check),
-    // so collect them.
+    use conf::Conf;
+    use std::fmt::Write as FmtWrite; // for write! into String
+
+    // We need the args twice, so collect them.
     let args_vec: Vec<S> = args.into_iter().collect();
 
-    // Single pass: CLI + env only, no config file.
+    // --- Single pass: CLI + env via Conf ---
     let cli = match Cli::try_parse_from(args_vec.clone(), std::env::vars_os()) {
         Ok(cli) => cli,
         Err(e) => {
-            // Print whatever conf generated (usage + error/help) to stdout.
-            let _ = write!(out, "{e}");
-
-            // If the user just ran the binary name with no extra args,
-            // treat this as "show help and succeed" (like your old
-            // MissingSubcommand behavior).
-            if args_vec.len() <= 1 {
+            // Conf/clap uses exit_code() == 0 for --help / --version style flows.
+            if e.exit_code() == 0 {
+                // Print the nicely formatted help/version text to stdout.
+                let mut buf = String::new();
+                let _ = write!(&mut buf, "{e}");
+                let _ = write!(out, "{buf}");
+                // Treat as success so `main` doesn't print it again.
                 return Ok(());
             } else {
+                // For real usage errors, *don't* print here.
+                // Let `main` handle printing the error once.
                 return Err(CliError::InvalidArgs(e.to_string()));
             }
         }
     };
 
+    // Your existing validation
     cli.validate()?;
 
     let log_level = build_log_level(&cli);
     init_tracing(&log_level);
 
     match cli.command {
+        // Serve: just use CLI/env config (no config file merge yet)
         Commands::Serve(serve_cfg) => {
-            let root_dir = ensure_root_dir(cli.root_dir.clone())?;
+            let root_dir = ensure_root_dir(cli.root_dir.clone().0)?;
 
-            // This is now CLI + env only (no file merge).
+            // Conf already merged CLI + env into this AppConfig
             let app_cfg: AppConfig = serve_cfg.app;
 
             // Validate merged config
             app_cfg.tls.validate_with_root(&root_dir)?;
             app_cfg.auth.validate()?;
 
-            serve(app_cfg, root_dir, out, err)
+            serve(app_cfg, root_dir, out, _err)
         }
 
-        Commands::AcmeDnsRegister(args) => acme_dns_register(args, cli.root_dir.clone(), out, err),
+        // ACME DNS registration: unchanged
+        Commands::AcmeDnsRegister(args) => {
+            acme_dns_register(args, cli.root_dir.clone().0, out, _err)
+        }
     }
 }
 

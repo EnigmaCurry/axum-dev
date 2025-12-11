@@ -1,9 +1,27 @@
-use std::{env, path::PathBuf};
+use std::{env, fmt, path::PathBuf, str::FromStr};
 
 use crate::errors::CliError;
 
 use super::{AcmeDnsRegisterConfig, ServeConfig};
 use conf::{Conf, Subcommands};
+
+#[derive(Debug, Clone)]
+pub struct RootDir(pub PathBuf);
+
+impl FromStr for RootDir {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(RootDir(PathBuf::from(s)))
+    }
+}
+
+impl fmt::Display for RootDir {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Good enough for help text / env hint
+        write!(f, "{}", self.0.to_string_lossy())
+    }
+}
 
 #[derive(Conf, Debug, Clone)]
 #[conf(serde)]
@@ -20,8 +38,8 @@ pub struct Cli {
 
     /// Base directory for config + state.
     #[arg(short = 'C', long = "root-dir", env = "ROOT_DIR")]
-    #[conf(serde(skip))]
-    pub root_dir: PathBuf,
+    #[conf(default(RootDir(default_root_dir())), serde(skip))]
+    pub root_dir: RootDir,
 
     /// Config file (e.g. defaults.toml in ROOT_DIR)
     #[arg(short = 'f', long = "config", env = "CONFIG_FILE")]
@@ -57,23 +75,19 @@ pub enum Commands {
 }
 
 fn default_root_dir() -> PathBuf {
-    // CARGO_BIN_NAME is compile-time, so this is cheap.
     let bin = env!("CARGO_BIN_NAME");
 
-    // 1) If XDG_DATA_HOME is set, prefer it.
     if let Ok(xdg) = env::var("XDG_DATA_HOME") {
         if !xdg.is_empty() {
             return PathBuf::from(xdg).join(bin);
         }
     }
 
-    // 2) Fallback: ~/.local/share/<bin>
     if let Ok(home) = env::var("HOME") {
         if !home.is_empty() {
             return PathBuf::from(home).join(".local").join("share").join(bin);
         }
     }
 
-    // 3) Last resort: current directory / <bin>-data
     PathBuf::from(format!("{bin}-data"))
 }
