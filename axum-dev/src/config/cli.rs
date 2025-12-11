@@ -3,7 +3,7 @@ use std::{env, fmt, path::PathBuf, str::FromStr};
 use crate::errors::CliError;
 
 use super::{AcmeDnsRegisterConfig, ServeConfig};
-use conf::{Conf, Subcommands};
+use conf::{Conf, Subcommands, anstyle::AnsiColor};
 
 #[derive(Debug, Clone)]
 pub struct RootDir(pub PathBuf);
@@ -23,8 +23,14 @@ impl fmt::Display for RootDir {
     }
 }
 
+const HELP_STYLES: conf::Styles = conf::Styles::styled()
+    .header(AnsiColor::Blue.on_default().bold())
+    .usage(AnsiColor::Blue.on_default().bold())
+    .literal(AnsiColor::White.on_default())
+    .placeholder(AnsiColor::Green.on_default());
+
 #[derive(Conf, Debug, Clone)]
-#[conf(serde)]
+#[conf(serde, styles = HELP_STYLES, about ="A server")]
 pub struct Cli {
     /// Sets the log level, overriding the RUST_LOG environment variable.
     #[arg(long)]
@@ -77,16 +83,16 @@ pub enum Commands {
 fn default_root_dir() -> PathBuf {
     let bin = env!("CARGO_BIN_NAME");
 
-    if let Ok(xdg) = env::var("XDG_DATA_HOME") {
-        if !xdg.is_empty() {
-            return PathBuf::from(xdg).join(bin);
-        }
+    if let Ok(xdg) = env::var("XDG_DATA_HOME")
+        && !xdg.is_empty()
+    {
+        return PathBuf::from(xdg).join(bin);
     }
 
-    if let Ok(home) = env::var("HOME") {
-        if !home.is_empty() {
-            return PathBuf::from(home).join(".local").join("share").join(bin);
-        }
+    if let Ok(home) = env::var("HOME")
+        && !home.is_empty()
+    {
+        return PathBuf::from(home).join(".local").join("share").join(bin);
     }
 
     PathBuf::from(format!("{bin}-data"))

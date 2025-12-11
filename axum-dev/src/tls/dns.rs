@@ -5,7 +5,7 @@ use std::{
 };
 
 use acme_dns_client::{AcmeDnsClient, Credentials};
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, anyhow};
 use async_trait::async_trait;
 use instant_acme::{
     Account, AccountBuilder, AccountCredentials, AuthorizationStatus, ChallengeType, Identifier,
@@ -366,10 +366,10 @@ async fn create_or_load_account(
 
     // Build the NewAccount payload.
     let mut contact_strings = Vec::new();
-    if let Some(email) = contact_email {
-        if !email.is_empty() {
-            contact_strings.push(format!("mailto:{email}"));
-        }
+    if let Some(email) = contact_email
+        && !email.is_empty()
+    {
+        contact_strings.push(format!("mailto:{email}"));
     }
 
     // instant-acme expects `&[&str]` here.
@@ -502,6 +502,6 @@ pub fn format_acme_dns_cname_help(domains: &[String], fulldomain: &str) -> Strin
         }
         out.push_str(&format!("\ndig +short CNAME _acme-challenge.{d} @1.1.1.1"));
     }
-    out.push_str("\n");
+    out.push('\n');
     out
 }

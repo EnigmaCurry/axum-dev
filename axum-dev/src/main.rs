@@ -1,17 +1,13 @@
 use axum::http::HeaderName;
-use conf::Conf;
 use config::{AcmeDnsRegisterConfig, TlsAcmeChallenge, TlsMode};
 use config::{AppConfig, build_log_level};
 use errors::CliError;
 use middleware::auth::AuthenticationMethod;
-use std::env;
-use std::fs::{self, File};
-use std::io::Read;
-use std::io::{BufReader, Write};
+use std::fs::{self};
+use std::io::Write;
 use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use tls::dns::{format_acme_dns_cname_help, register_acme_dns_account};
-use tracing_subscriber::EnvFilter;
 
 mod api_docs;
 mod config;
@@ -25,7 +21,7 @@ mod routes;
 mod server;
 mod tls;
 
-use crate::config::{Cli, Commands, ServeConfig};
+use crate::config::{Cli, Commands};
 use prelude::*;
 
 fn main() {
@@ -57,31 +53,38 @@ fn init_tracing(log_level: &str) {
 pub fn run_cli<I, S, W1, W2>(args: I, out: &mut W1, _err: &mut W2) -> Result<(), CliError>
 where
     I: IntoIterator<Item = S>,
-    S: Into<std::ffi::OsString> + Clone,
+    S: Into<std::ffi::OsString>,
     W1: Write,
     W2: Write,
 {
     use conf::Conf;
-    use std::fmt::Write as FmtWrite; // for write! into String
 
-    // We need the args twice, so collect them.
-    let args_vec: Vec<S> = args.into_iter().collect();
+    // Normalize args to OsString so we can reason about length & reuse them.
+    let args_vec: Vec<std::ffi::OsString> = args.into_iter().map(Into::into).collect();
 
-    // --- Single pass: CLI + env via Conf ---
+    // If the user provided no subcommand (just the binary name),
+    // pretend they ran `axum-dev --help` and print the same help output.
+    if args_vec.len() <= 1 {
+        // We don't care about the return value; `--help` is always an error
+        // with exit_code() == 0, and `print()` writes the nicely formatted help.
+        if let Err(e) = Cli::try_parse_from([env!("CARGO_BIN_NAME"), "--help"], std::env::vars_os())
+        {
+            let _ = e.print(); // writes to stdout/stderr as appropriate
+        }
+        return Ok(());
+    }
+
+    // --- Normal parsing path: CLI + env via Conf ---
     let cli = match Cli::try_parse_from(args_vec.clone(), std::env::vars_os()) {
         Ok(cli) => cli,
         Err(e) => {
-            // Conf/clap uses exit_code() == 0 for --help / --version style flows.
+            // Let conf/clap produce the pretty message.
+            let _ = e.print();
             if e.exit_code() == 0 {
-                // Print the nicely formatted help/version text to stdout.
-                let mut buf = String::new();
-                let _ = write!(&mut buf, "{e}");
-                let _ = write!(out, "{buf}");
-                // Treat as success so `main` doesn't print it again.
+                // Help/version/etc -> treat as success.
                 return Ok(());
             } else {
-                // For real usage errors, *don't* print here.
-                // Let `main` handle printing the error once.
+                // Real invalid-args error -> bubble up.
                 return Err(CliError::InvalidArgs(e.to_string()));
             }
         }
@@ -108,7 +111,7 @@ where
             serve(app_cfg, root_dir, out, _err)
         }
 
-        // ACME DNS registration: unchanged
+        // ACME DNS registration
         Commands::AcmeDnsRegister(args) => {
             acme_dns_register(args, cli.root_dir.clone().0, out, _err)
         }
@@ -194,16 +197,16 @@ fn serve<W1: Write, W2: Write>(
                 .tls
                 .sans
                 .iter()
+                .filter(|&s| !s.trim().is_empty())
                 .cloned()
-                .filter(|s| !s.trim().is_empty())
                 .collect();
 
             // (rest of your ACME code unchanged, now using `cache_dir`)
 
-            if let Some(ref host) = cfg.network.net_host {
-                if !host.trim().is_empty() {
-                    domains.push(host.clone());
-                }
+            if let Some(ref host) = cfg.network.net_host
+                && !host.trim().is_empty()
+            {
+                domains.push(host.clone());
             }
 
             // Dedup while preserving order.
@@ -342,10 +345,8 @@ fn serve<W1: Write, W2: Write>(
         trusted_proxy,
     };
 
-    if fwd_enabled {
-        if let Some(t) = trusted_proxy {
-            info!("Trusted FORWARDED-FOR enabled: header='{fwd_header_str}', trusted_proxy={t}");
-        }
+    if fwd_enabled && let Some(t) = trusted_proxy {
+        info!("Trusted FORWARDED-FOR enabled: header='{fwd_header_str}', trusted_proxy={t}");
     }
 
     debug!("serve(): parsed cfg = {:?}", cfg.clone());
@@ -410,10 +411,10 @@ fn acme_dns_register<W1: Write, W2: Write>(
     // Build domain list from NET_HOST + TLS_SANS for CNAME hints
     let mut domains: Vec<String> = Vec::new();
 
-    if let Some(ref host) = args.net_host {
-        if !host.trim().is_empty() {
-            domains.push(host.clone());
-        }
+    if let Some(ref host) = args.net_host
+        && !host.trim().is_empty()
+    {
+        domains.push(host.clone());
     }
 
     for s in &args.sans.0 {

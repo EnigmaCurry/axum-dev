@@ -135,13 +135,13 @@ pub struct TlsConfig {
 
 impl TlsConfig {
     pub fn validate_with_root(&self, _root_dir: &std::path::Path) -> Result<(), CliError> {
-        if matches!(self.mode, TlsMode::Manual) {
-            if self.cert_path.is_none() || self.key_path.is_none() {
-                return Err(CliError::InvalidArgs(
-                    "Both --tls-cert-path and --tls-key-path are required when --tls-mode=manual."
-                        .to_string(),
-                ));
-            }
+        if matches!(self.mode, TlsMode::Manual)
+            && (self.cert_path.is_none() || self.key_path.is_none())
+        {
+            return Err(CliError::InvalidArgs(
+                "Both --tls-cert-path and --tls-key-path are required when --tls-mode=manual."
+                    .to_string(),
+            ));
         }
         Ok(())
     }

@@ -40,12 +40,11 @@ impl AuthConfig {
         if matches!(
             self.authentication_method,
             AuthenticationMethod::ForwardAuth
-        ) {
-            if self.trusted_proxy.is_none() {
-                return Err(CliError::InvalidArgs(
-                    "auth-trusted-proxy is required when auth-method=forward_auth".into(),
-                ));
-            }
+        ) && self.trusted_proxy.is_none()
+        {
+            return Err(CliError::InvalidArgs(
+                "auth-trusted-proxy is required when auth-method=forward_auth".into(),
+            ));
         }
 
         // You might also enforce that if trusted_forwarded_for is true,

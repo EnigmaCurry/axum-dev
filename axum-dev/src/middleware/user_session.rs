@@ -48,7 +48,6 @@ fn generate_csrf_token() -> String {
 /// - Increment visit_count.
 /// - Copy the trusted client IP (if available) into the session.
 /// - Record peer_ip as seen by our server.
-
 pub async fn user_session_middleware(
     session: Session,
     mut req: Request,

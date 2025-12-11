@@ -77,7 +77,7 @@ pub async fn trusted_header_auth(
                 return StatusCode::FORBIDDEN.into_response();
             }
             // Skip header; rely on normal login flow.
-            return next.run(req).await;
+            next.run(req).await
         }
 
         AuthenticationMethod::ForwardAuth => {

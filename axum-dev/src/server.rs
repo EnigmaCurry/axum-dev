@@ -14,12 +14,7 @@ use axum_server::{Handle, tls_rustls::RustlsConfig};
 use futures_util::StreamExt;
 use rustls::ServerConfig as RustlsServerConfig;
 use sqlx::{ConnectOptions, SqlitePool, sqlite::SqliteConnectOptions};
-use std::{
-    net::SocketAddr,
-    path::{Path, PathBuf},
-    sync::Arc,
-    time::Duration,
-};
+use std::{net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 use tokio::fs;
 use tokio::task::AbortHandle;
 use tokio_rustls_acme::{AcmeConfig, caches::DirCache};
@@ -380,10 +375,10 @@ pub async fn run(
                     .cache(DirCache::new(cache_dir.clone()))
                     .directory(directory_url.clone());
 
-                if let Some(ref email) = contact_email {
-                    if !email.is_empty() {
-                        cfg = cfg.contact([format!("mailto:{email}")]);
-                    }
+                if let Some(ref email) = contact_email
+                    && !email.is_empty()
+                {
+                    cfg = cfg.contact([format!("mailto:{email}")]);
                 }
 
                 cfg.state()
