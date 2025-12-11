@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 pub struct AuthConfig {
     /// Authentication method to use: forward_auth or username_password.
     #[arg(long = "auth-method", env = "AUTH_METHOD")]
+    #[conf(default(AuthenticationMethod::UsernamePassword))]
     pub authentication_method: AuthenticationMethod,
 
     /// Header to read the authenticated user email from.

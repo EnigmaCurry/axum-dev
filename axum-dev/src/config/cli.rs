@@ -30,7 +30,7 @@ const HELP_STYLES: conf::Styles = conf::Styles::styled()
     .placeholder(AnsiColor::Green.on_default());
 
 #[derive(Conf, Debug, Clone)]
-#[conf(serde, styles = HELP_STYLES, about ="A server")]
+#[conf(serde, styles = HELP_STYLES)]
 pub struct Cli {
     /// Sets the log level, overriding the RUST_LOG environment variable.
     #[arg(long)]

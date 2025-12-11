@@ -141,6 +141,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "app-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "arc-swap"
 version = "1.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -343,6 +352,7 @@ dependencies = [
  "aide",
  "anyhow",
  "api-doc-macros",
+ "app-macros",
  "askama",
  "async-trait",
  "axum",

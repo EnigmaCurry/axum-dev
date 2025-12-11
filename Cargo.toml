@@ -3,4 +3,5 @@ resolver = "3"
 members = [
   "axum-dev",
   "api-doc-macros",
+  "app-macros"
 ]

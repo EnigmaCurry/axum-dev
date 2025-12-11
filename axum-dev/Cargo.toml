@@ -48,6 +48,7 @@ tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 uuid = { version = "1.18.1", features = ["serde", "v4"] }
 schemars = { version = "0.9", features = ["derive"] }
 api-doc-macros = { path = "../api-doc-macros" }
+app-macros = { path = "../app-macros" }
 axum-server = { version = "0.7.3", features = ["tls-rustls"] }
 rcgen = "0.14.5"
 x509-parser = "0.18.0"

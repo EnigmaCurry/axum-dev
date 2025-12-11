@@ -102,7 +102,7 @@ pub struct TlsConfig {
     ///
     /// APP_HOST is used as the primary Common Name (CN); these names are added
     /// as SubjectAltNames. Used for ACME and self-signed modes.
-    #[arg(long = "tls-san", env = "TLS_SANS")]
+    #[arg(long = "tls-san", env = "TLS_SANS", default(StringList::from_str("").expect("")))]
     pub sans: StringList,
 
     /// ACME challenge type to use when --tls-mode=acme.

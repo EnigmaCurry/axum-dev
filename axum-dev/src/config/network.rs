@@ -11,7 +11,7 @@ pub struct NetworkConfig {
 
     /// Port to bind (or set NET_LISTEN_PORT).
     #[arg(long = "net-listen-port", env = "NET_LISTEN_PORT")]
-    #[conf(default(3001))]
+    #[conf(default(3000))]
     pub listen_port: u16,
 
     /// Primary public hostname for this app (used as the default TLS CN).
