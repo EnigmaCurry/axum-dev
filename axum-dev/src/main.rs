@@ -1,4 +1,5 @@
 use axum::http::HeaderName;
+use conf::completion::write_completion;
 use config::{AcmeDnsRegisterConfig, TlsAcmeChallenge, TlsMode};
 use config::{AppConfig, build_log_level};
 use errors::CliError;
@@ -97,7 +98,10 @@ where
     init_tracing(&log_level);
 
     match cli.command {
-        // Serve: just use CLI/env config (no config file merge yet)
+        Commands::Completions(args) => {
+            write_completion::<Cli, _>(args.shell, None, &mut std::io::stdout())?;
+            Ok(())
+        }
         Commands::Serve(serve_cfg) => {
             let root_dir = ensure_root_dir(cli.root_dir.clone().0)?;
 
@@ -110,8 +114,6 @@ where
 
             serve(app_cfg, root_dir, out, _err)
         }
-
-        // ACME DNS registration
         Commands::AcmeDnsRegister(args) => {
             acme_dns_register(args, cli.root_dir.clone().0, out, _err)
         }

@@ -3,7 +3,8 @@ use std::{env, fmt, path::PathBuf, str::FromStr};
 use crate::errors::CliError;
 
 use super::{AcmeDnsRegisterConfig, ServeConfig};
-use conf::{Conf, Subcommands, anstyle::AnsiColor};
+use conf::{Conf, Subcommands, anstyle::AnsiColor, completion::Shell};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
 pub struct RootDir(pub PathBuf);
@@ -63,13 +64,24 @@ impl Cli {
             // we now validate Serve *after* merging config in run_cli
             Commands::Serve(_) => Ok(()),
             Commands::AcmeDnsRegister { .. } => Ok(()),
+            Commands::Completions(_) => Ok(()),
         }
     }
+}
+
+#[derive(Conf, Debug, Clone, Serialize, Deserialize)]
+#[conf(serde)]
+pub struct CompletionArgs {
+    /// Shell to generate completions for (bash|elvish|fish|powershell|zsh)
+    #[conf(pos, serde(skip))]
+    pub shell: Shell,
 }
 
 #[derive(Subcommands, Debug, Clone)]
 #[conf(serde)]
 pub enum Commands {
+    /// Output shell completion scripts
+    Completions(CompletionArgs),
     /// Run the HTTP API server.
     Serve(ServeConfig),
 
