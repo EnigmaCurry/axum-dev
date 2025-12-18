@@ -14,36 +14,58 @@ use crate::{
     server,
 };
 
+pub struct ServePlan {
+    pub addr: SocketAddr,
+    pub tls_config: server::TlsConfig,
+    pub db_url: String,
+    pub auth_cfg: middleware::trusted_header_auth::ForwardAuthConfig,
+    pub fwd_cfg: middleware::trusted_forwarded_for::TrustedForwardedForConfig,
+    pub session_secure: bool,
+    pub session_expiry_secs: u64,
+    pub session_check_secs: u64,
+}
+
+fn plan_serve(cfg: &AppConfig, root_dir: &Path) -> Result<ServePlan, CliError> {
+    let addr = parse_listen_addr(cfg)?;
+    let tls_config = build_tls_config(cfg, root_dir)?;
+    let db_url = build_db_url(cfg, root_dir);
+    let (auth_cfg, fwd_cfg) = build_auth_cfgs(cfg)?;
+
+    Ok(ServePlan {
+        addr,
+        tls_config,
+        db_url,
+        auth_cfg,
+        fwd_cfg,
+        session_secure: true,
+        session_expiry_secs: cfg.session.expiry_seconds,
+        session_check_secs: cfg.session.check_seconds,
+    })
+}
+
 pub fn serve(cfg: AppConfig, root_dir: PathBuf) -> Result<(), CliError> {
     let root_dir = ensure_root_dir(root_dir)?;
 
-    let addr = parse_listen_addr(&cfg)?;
-    let tls_config = build_tls_config(&cfg, &root_dir)?;
-    let db_url = build_db_url(&cfg, &root_dir);
-    let (auth_cfg, fwd_cfg) = build_auth_cfgs(&cfg)?;
-
-    let session_secure = true;
-    let session_expiry_secs = cfg.session.expiry_seconds;
-    let session_check_secs = cfg.session.check_seconds;
+    let plan = plan_serve(&cfg, &root_dir)?;
 
     debug!(?cfg, "serve(): parsed cfg");
-    info!("Server will listen on {addr}");
-    info!("Database URL: {db_url:?}");
+    info!("Server will listen on {}", plan.addr);
+    info!("Database URL: {:?}", plan.db_url);
     debug!(
         "Session config: secure={}, expiry_secs={}, check_secs={}",
-        session_secure, session_expiry_secs, session_check_secs
+        plan.session_secure, plan.session_expiry_secs, plan.session_check_secs
     );
 
     let rt = create_runtime()?;
     rt.block_on(server::run(
-        addr,
-        auth_cfg,
-        fwd_cfg,
-        db_url,
-        session_secure,
-        session_expiry_secs,
-        session_check_secs,
-        tls_config,
+        plan.addr,
+        plan.auth_cfg,
+        plan.fwd_cfg,
+        plan.db_url,
+        plan.session_secure,
+        plan.session_expiry_secs,
+        plan.session_check_secs,
+        plan.tls_config,
     ))
     .map_err(|e| {
         error!("server::run failed: {:#}", e);
@@ -240,7 +262,7 @@ fn build_auth_cfgs(
             );
         }
         AuthenticationMethod::UsernamePassword => {
-            info!("Authentication: username_password (header/forward-auth config ignored)");
+            info!("Authentication method: UsernamePassword");
         }
     }
 
@@ -271,4 +293,42 @@ fn create_runtime() -> Result<tokio::runtime::Runtime, CliError> {
         error!("Failed to create Tokio runtime: {e}");
         CliError::RuntimeError(format!("Failed to start Tokio runtime: {e}"))
     })
+}
+
+#[test]
+fn plan_serve_builds_expected_db_url_and_addr() {
+    // Build a minimal config (fill in fields as needed for your structs)
+    let cfg = AppConfig {
+        network: crate::config::NetworkConfig {
+            listen_ip: "127.0.0.1".to_string(),
+            listen_port: 3001,
+            host: None,
+            // ..other fields
+        },
+        database: crate::config::DatabaseConfig {
+            url: None, /* .. */
+        },
+        session: crate::config::SessionConfig {
+            expiry_seconds: 3600,
+            check_seconds: 60,
+            // ..
+        },
+        auth: crate::config::AuthConfig {
+            // ensure this matches validation expectations
+            // ..
+            ..Default::default()
+        },
+        tls: crate::config::TlsConfig {
+            mode: crate::config::TlsMode::None,
+            // ..
+            ..Default::default()
+        },
+    };
+
+    let root = std::path::PathBuf::from("/tmp/axum-dev-test");
+    let plan = plan_serve(&cfg, &root).expect("plan_serve should succeed");
+
+    assert_eq!(plan.addr.to_string(), "127.0.0.1:3001");
+    assert!(plan.db_url.contains("sqlite://"));
+    assert!(plan.db_url.contains("data.db"));
 }

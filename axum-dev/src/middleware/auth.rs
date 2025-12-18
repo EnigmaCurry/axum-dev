@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Default)]
 pub enum AuthenticationMethod {
+    #[default]
     UsernamePassword,
     ForwardAuth,
 }

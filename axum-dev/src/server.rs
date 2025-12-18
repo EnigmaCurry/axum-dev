@@ -83,7 +83,7 @@ pub async fn run(
     // Helpful to see where we're running from
     let cwd =
         std::env::current_dir().with_context(|| "failed to determine current working directory")?;
-    tracing::info!(
+    debug!(
         "server::run starting; cwd='{}', db_url='{}'",
         cwd.display(),
         db_url
@@ -100,7 +100,7 @@ pub async fn run(
             std::time::Duration::from_millis(100),
         );
     let db: SqlitePool = SqlitePool::connect_with(connect_opts).await?;
-    info!("Loaded database connection pool. DATABASE_URL={db_url}");
+    debug!("Loaded database connection pool. DATABASE_URL={db_url}");
     sqlx::migrate!().run(&db.clone()).await?;
 
     // Session store
@@ -134,7 +134,7 @@ pub async fn run(
             match tokio::net::TcpListener::bind(addr).await {
                 Ok(listener) => {
                     let bound_addr = listener.local_addr()?;
-                    info!("listening on http://{bound_addr}");
+                    debug!("listening on http://{bound_addr}");
 
                     axum::serve(
                         listener,

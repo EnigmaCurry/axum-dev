@@ -9,9 +9,10 @@ use std::{fmt, str::FromStr};
 
 use super::StringList;
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Default)]
 pub enum TlsMode {
     /// No TLS – listen on plain HTTP only.
+    #[default]
     None,
     /// Use local certificate and private key files.
     Manual,
@@ -49,8 +50,9 @@ impl FromStr for TlsMode {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Default)]
 pub enum TlsAcmeChallenge {
+    #[default]
     TlsAlpn01,
     Http01,
     Dns01,
@@ -82,7 +84,7 @@ impl FromStr for TlsAcmeChallenge {
     }
 }
 
-#[derive(Conf, Debug, Clone, Serialize, Deserialize)]
+#[derive(Conf, Debug, Clone, Serialize, Deserialize, Default)]
 #[conf(serde)]
 pub struct TlsConfig {
     /// TLS mode to use: none, manual, acme, or self-signed.
