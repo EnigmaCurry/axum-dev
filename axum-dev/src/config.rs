@@ -17,9 +17,16 @@ pub use tls::{TlsAcmeChallenge, TlsConfig, TlsMode};
 pub mod log;
 use conf::Conf;
 pub use log::build_log_level;
+use std::env;
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::path::{Path, PathBuf};
+use tracing::{debug, info};
+
+const DEFAULT_CONFIG_BASENAME: &str = "defaults.toml";
 
 use serde::{Deserialize, Serialize};
-use std::{fmt, ops::Deref, path::PathBuf, str::FromStr};
+use std::{fmt, ops::Deref, str::FromStr};
 
 use crate::errors::CliError;
 
@@ -69,13 +76,12 @@ impl Deref for StringList {
     }
 }
 
-pub(crate) fn resolve_config_path(cli: &Cli, root_dir: &PathBuf) -> Option<PathBuf> {
+pub(crate) fn resolve_config_path(cli: &Cli, root_dir: &PathBuf) -> PathBuf {
     if let Some(p) = cli.config_file.clone() {
-        return Some(if p.is_relative() { root_dir.join(p) } else { p });
+        return if p.is_relative() { root_dir.join(p) } else { p };
     }
 
-    let p = root_dir.join("defaults.toml");
-    if p.exists() { Some(p) } else { None }
+    root_dir.join(DEFAULT_CONFIG_BASENAME)
 }
 
 pub(crate) fn args_after_subcommand(
@@ -104,4 +110,130 @@ pub(crate) fn load_toml_doc(path: &PathBuf) -> Result<toml::Value, CliError> {
             path.display()
         ))
     })
+}
+
+fn is_default_root_and_config(cli: &Cli) -> bool {
+    // Root dir default check
+    let is_default_root = cli.root_dir.0 == default_root_dir();
+    debug!("is_default_root: {is_default_root}");
+    // Config default check (assuming your Cli default for -f is "defaults.toml")
+    // If your Cli default is something else, adjust this comparison accordingly.
+    let is_default_cfg = cli.config_file == None;
+    debug!("is_default_cfg: {is_default_cfg}");
+    debug!("cli.config_file: {:?}", cli.config_file);
+    is_default_root && is_default_cfg
+}
+
+fn default_config_header() -> String {
+    let bin = env!("CARGO_BIN_NAME");
+    let default_root = default_root_dir();
+
+    format!(
+        r#"## Configuration in {bin} is hierarchical:
+## (From highest priorirty to lowest priority):
+##  1. Command line arguments (e.g., `{bin} serve --some-setting ...` ).
+##  2. Environment variables (e.g., `export AXUM_DEV_SOME_SETTING=...` ).
+##  3. Defaults file (this file) - you can change these settings in TOML format.
+##  4. Compiled builtin defaults - to change these you have to recompile the source code.
+
+## `{}` is the app's default root directory.
+## By default, `{}` is loaded from within the app's root directory.
+
+##  You can change the default data directory and/or defaults file in two ways:
+##
+##  1. Use your own data directory with `-C` (`--root-directory`).
+##     This will find an optional `{}` file colocated in the same directory:
+##       {bin} -C ~/prod/{bin}
+##
+##  2. Specify both the data directory (`-C`) and the config file path (`-f` or `--config`).
+##     This will allow you to keep the data and config in separate directories:
+##
+##       {bin} -C ~/.local/share/{bin} -f /path/to/some/other/config.toml
+
+## TOML example:
+# [network]
+# listen_ip = "127.0.0.2"
+# listen_port = 3002
+#
+# [auth]
+# method = "UsernamePassword"
+"#,
+        default_root.display(),
+        DEFAULT_CONFIG_BASENAME,
+        DEFAULT_CONFIG_BASENAME,
+    )
+}
+
+pub(crate) fn ensure_config_file_exists(cfg_path: &Path) -> Result<(), CliError> {
+    let is_defaults = cfg_path
+        .file_name()
+        .and_then(|s| s.to_str())
+        .map(|s| s == DEFAULT_CONFIG_BASENAME)
+        .unwrap_or(false);
+
+    // If basename is defaults.toml and it's missing: create it once with header.
+    if is_defaults && !cfg_path.exists() {
+        if let Some(parent) = cfg_path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| {
+                CliError::RuntimeError(format!(
+                    "Error creating config directory {}: {e}",
+                    parent.display()
+                ))
+            })?;
+        }
+
+        match OpenOptions::new()
+            .write(true)
+            .create_new(true) // never clobber
+            .open(cfg_path)
+        {
+            Ok(mut f) => {
+                let header = default_config_header();
+                f.write_all(header.as_bytes()).map_err(|e| {
+                    CliError::RuntimeError(format!(
+                        "Error writing default config file {}: {e}",
+                        cfg_path.display()
+                    ))
+                })?;
+                info!("Created default config file: {}", cfg_path.display());
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+                // raced; fine
+            }
+            Err(e) => {
+                return Err(CliError::RuntimeError(format!(
+                    "Error creating default config file {}: {e}",
+                    cfg_path.display()
+                )));
+            }
+        }
+    }
+
+    // If it still doesn't exist (user provided a non-default missing path): hard error.
+    if !cfg_path.exists() {
+        return Err(CliError::InvalidArgs(format!(
+            "Config file does not exist: {}",
+            cfg_path.display()
+        )));
+    }
+    info!("Loading defaults from config file: {}", cfg_path.display());
+    Ok(())
+}
+
+pub(crate) fn default_root_dir() -> PathBuf {
+    let bin = env!("CARGO_BIN_NAME");
+
+    if let Ok(xdg) = env::var("XDG_DATA_HOME")
+        && !xdg.is_empty()
+    {
+        return PathBuf::from(xdg).join(bin);
+    }
+
+    if let Ok(home) = env::var("HOME")
+        && !home.is_empty()
+    {
+        return PathBuf::from(home).join(".local").join("share").join(bin);
+    }
+
+    PathBuf::from(format!("{bin}-data"))
 }

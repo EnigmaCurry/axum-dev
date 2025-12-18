@@ -1,6 +1,6 @@
 use std::{env, fmt, path::PathBuf, str::FromStr};
 
-use crate::errors::CliError;
+use crate::{config::default_root_dir, errors::CliError};
 
 use super::{AcmeDnsRegisterConfig, ServeConfig};
 use conf::{Conf, Subcommands, anstyle::AnsiColor, completion::Shell};
@@ -90,22 +90,4 @@ pub enum Commands {
     /// Run this once before `serve` when using `--tls-mode=acme --tls-acme-challenge=dns-01`,
     /// unless you are providing ACME_DNS_* credentials explicitly.
     AcmeDnsRegister(AcmeDnsRegisterConfig),
-}
-
-fn default_root_dir() -> PathBuf {
-    let bin = env!("CARGO_BIN_NAME");
-
-    if let Ok(xdg) = env::var("XDG_DATA_HOME")
-        && !xdg.is_empty()
-    {
-        return PathBuf::from(xdg).join(bin);
-    }
-
-    if let Ok(home) = env::var("HOME")
-        && !home.is_empty()
-    {
-        return PathBuf::from(home).join(".local").join("share").join(bin);
-    }
-
-    PathBuf::from(format!("{bin}-data"))
 }

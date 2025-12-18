@@ -2,7 +2,7 @@ use axum::http::HeaderName;
 use conf::completion::write_completion;
 use config::{
     AcmeDnsRegisterConfig, ServeConfig, TlsAcmeChallenge, TlsMode, args_after_subcommand,
-    load_toml_doc, resolve_config_path,
+    ensure_config_file_exists, load_toml_doc, resolve_config_path,
 };
 use config::{AppConfig, build_log_level};
 use errors::CliError;
@@ -103,52 +103,51 @@ where
         }
         Commands::Serve(ref _first_pass_cfg) => {
             let root_dir = ensure_root_dir(cli.root_dir.clone().0)?;
+            info!("root directory (app data): {}", cli.root_dir);
+
+            let cfg_path = resolve_config_path(&cli, &root_dir);
+            ensure_config_file_exists(&cfg_path)?;
 
             // Build args for ServeConfig parse: everything after the "serve" token.
             let serve_args = args_after_subcommand(&args_vec, "serve")
                 .ok_or_else(|| CliError::InvalidArgs("Missing 'serve' subcommand".to_string()))?;
 
             // If we have a config file, install it as a "document" layer.
-            // Precedence will be: args > env > doc > defaults. :contentReference[oaicite:1]{index=1}
-            let serve_cfg = match resolve_config_path(&cli, &root_dir) {
-                Some(cfg_path) => {
-                    let doc = load_toml_doc(&cfg_path)?;
+            // Precedence will be: args > env > doc > defaults.
+            let serve_cfg = if cfg_path.exists() {
+                let doc = load_toml_doc(&cfg_path)?;
 
-                    match ServeConfig::conf_builder()
-                        .args(serve_args)
-                        .env(std::env::vars_os())
-                        .doc(cfg_path.to_string_lossy(), doc)
-                        .try_parse()
-                    {
-                        Ok(cfg) => cfg,
-                        Err(e) => {
-                            write_conf_error(&e, out, _err);
-                            if e.exit_code() == 0 {
-                                return Ok(());
-                            }
-                            return Err(CliError::InvalidArgs(e.to_string()));
+                match ServeConfig::conf_builder()
+                    .args(serve_args)
+                    .env(std::env::vars_os())
+                    .doc(cfg_path.to_string_lossy(), doc)
+                    .try_parse()
+                {
+                    Ok(cfg) => cfg,
+                    Err(e) => {
+                        write_conf_error(&e, out, _err);
+                        if e.exit_code() == 0 {
+                            return Ok(());
                         }
+                        return Err(CliError::InvalidArgs(e.to_string()));
                     }
                 }
-                None => {
-                    // No config file found; just parse serve args+env normally.
-                    match ServeConfig::try_parse_from(serve_args, std::env::vars_os()) {
-                        Ok(cfg) => cfg,
-                        Err(e) => {
-                            write_conf_error(&e, out, _err);
-                            if e.exit_code() == 0 {
-                                return Ok(());
-                            }
-                            return Err(CliError::InvalidArgs(e.to_string()));
+            } else {
+                // No config file found; just parse serve args+env normally.
+                match ServeConfig::try_parse_from(serve_args, std::env::vars_os()) {
+                    Ok(cfg) => cfg,
+                    Err(e) => {
+                        write_conf_error(&e, out, _err);
+                        if e.exit_code() == 0 {
+                            return Ok(());
                         }
+                        return Err(CliError::InvalidArgs(e.to_string()));
                     }
                 }
             };
 
-            // Conf already merged CLI+env+doc+defaults into this AppConfig
             let app_cfg: AppConfig = serve_cfg.app;
 
-            // Validate merged config
             app_cfg.tls.validate_with_root(&root_dir)?;
             app_cfg.auth.validate()?;
 
