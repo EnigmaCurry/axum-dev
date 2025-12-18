@@ -20,9 +20,9 @@ rustup-init ## just press enter when prompted for default selection
 ## Clone source repository
 
 ```
-git clone git@${GIT_FORGE}:${GIT_USERNAME}/${APP}.git \
-  ~/git/vendor/${GIT_USERNAME}/${APP}
-cd ~/git/vendor/${GIT_USERNAME}/${APP}
+git clone git@github.com:enigmacurry/axum-dev.git \
+  ~/git/vendor/enigmacurry/axum-dev
+cd ~/git/vendor/enigmacurry/axum-dev
 ```
 
 ## Install development dependencies
@@ -32,7 +32,7 @@ cargo install just
 just deps
 ```
 
-## Build and run development ${APP}
+## Build and run development axum-dev
 
 ```
 just run help
@@ -49,18 +49,18 @@ just build --release
 
 ```
 ## Add this to ~/.bashrc or equivalent:
-alias ${APP}='just -f ~/git/vendor/${GIT_USERNAME}/${APP}/Justfile run'
-source <(${APP} completions bash 2> /dev/null)
+alias axum-dev='just -f ~/git/vendor/enigmacurry/axum-dev/Justfile run'
+source <(axum-dev completions bash 2> /dev/null)
 ```
 
-Now you can run `${APP}` from any directory, with
+Now you can run `axum-dev` from any directory, with
 any arguments, and it will automatically rebuild from source, and then
 run it with those args. This will have full tab-completion in your shell.
 
 ## Testing
 
 This project has incomplete testing. [See the latest coverage
-report](https://${GIT_USERNAME}.github.io/${APP}/coverage/master/).
+report](https://enigmacurry.github.io/axum-dev/coverage/master/).
 
 ## Run tests
 

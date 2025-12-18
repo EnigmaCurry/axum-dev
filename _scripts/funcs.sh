@@ -212,8 +212,8 @@ template_diff() {
       if [[ -z "${seen[$alt]:-}" ]]; then paths+=("$alt"); seen["$alt"]=1; fi
 
       # Optional: if you export APP, also map APP/... to template/PROJECT/...
-      if [[ -n "${APP:-}" && "$p" == "$APP/"* ]]; then
-        alt="template/PROJECT/${p#${APP}/}"
+      if [[ -n "${APP:-}" && "$p" == "axum-dev/"* ]]; then
+        alt="template/PROJECT/${p#axum-dev/}"
         if [[ -z "${seen[$alt]:-}" ]]; then paths+=("$alt"); seen["$alt"]=1; fi
       fi
     done
