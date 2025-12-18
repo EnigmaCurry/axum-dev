@@ -1,4 +1,4 @@
-use std::{env, fmt, path::PathBuf, str::FromStr};
+use std::{env, fmt, io::Write, path::PathBuf, str::FromStr};
 
 use crate::{config::default_root_dir, errors::CliError};
 
@@ -90,4 +90,31 @@ pub enum Commands {
     /// Run this once before `serve` when using `--tls-mode=acme --tls-acme-challenge=dns-01`,
     /// unless you are providing ACME_DNS_* credentials explicitly.
     AcmeDnsRegister(AcmeDnsRegisterConfig),
+}
+
+pub(crate) fn write_conf_error<W1: Write, W2: Write>(e: &conf::Error, out: &mut W1, err: &mut W2) {
+    // In clap, help/version typically exit with code 0 (stdout-y),
+    // while real argument errors are nonzero (stderr-y).
+    let mut msg = e.to_string();
+    if !msg.ends_with('\n') {
+        msg.push('\n');
+    }
+
+    if e.exit_code() == 0 {
+        let _ = out.write_all(msg.as_bytes());
+    } else {
+        let _ = err.write_all(msg.as_bytes());
+    }
+}
+
+pub(crate) fn args_after_subcommand(
+    args: &[std::ffi::OsString],
+    sub: &str,
+) -> Option<Vec<std::ffi::OsString>> {
+    let bin = args.get(0)?.clone();
+    let idx = args.iter().position(|a| a.to_string_lossy() == sub)?;
+    let mut out = Vec::with_capacity(1 + (args.len().saturating_sub(idx + 1)));
+    out.push(bin);
+    out.extend_from_slice(&args[idx + 1..]);
+    Some(out)
 }

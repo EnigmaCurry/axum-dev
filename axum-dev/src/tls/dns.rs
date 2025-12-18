@@ -470,38 +470,3 @@ pub async fn register_acme_dns_account(
 
     Ok((creds, true))
 }
-
-/// Build a human-readable help block telling the user which CNAMEs to create
-/// for ACME DNS-01, given the domains their app serves and the acme-dns
-/// `fulldomain` value.
-///
-/// `domains` should be the same set you pass to the ACME TLS layer
-/// (derived from NET_HOST + TLS_SANS).
-pub fn format_acme_dns_cname_help(domains: &[String], fulldomain: &str) -> String {
-    // No domain list? Fall back to a generic example.
-    if domains.is_empty() {
-        return format!(
-            "\nConfigure your public DNS with a CNAME like:\n  \
-             _acme-challenge.<your-domain> IN CNAME {fulldomain}\n"
-        );
-    }
-
-    let mut out = String::from("\n\nFor each domain, configure a CNAME in your public DNS:\n");
-    for d in domains {
-        if d.trim().is_empty() {
-            continue;
-        }
-        out.push_str(&format!("  _acme-challenge.{d} IN CNAME {fulldomain}\n"));
-    }
-    out.push_str(
-        "\nPlease ensure these DNS records exist before running `serve`.\nUse `dig` to verify:\n",
-    );
-    for d in domains {
-        if d.trim().is_empty() {
-            continue;
-        }
-        out.push_str(&format!("\ndig +short CNAME _acme-challenge.{d} @1.1.1.1"));
-    }
-    out.push('\n');
-    out
-}

@@ -3,6 +3,7 @@ pub use acme::AcmeDnsRegisterConfig;
 pub mod auth;
 pub use auth::AuthConfig;
 pub mod cli;
+use cli::write_conf_error;
 pub use cli::{Cli, Commands};
 pub mod database;
 pub use database::DatabaseConfig;
@@ -76,27 +77,19 @@ impl Deref for StringList {
     }
 }
 
-pub(crate) fn resolve_config_path(cli: &Cli, root_dir: &PathBuf) -> PathBuf {
-    if let Some(p) = cli.config_file.clone() {
-        return if p.is_relative() { root_dir.join(p) } else { p };
+pub(crate) fn resolve_config_path(cli: &Cli, root_dir: &Path) -> PathBuf {
+    if let Some(p) = &cli.config_file {
+        return if p.is_relative() {
+            root_dir.join(p)
+        } else {
+            p.to_path_buf()
+        };
     }
 
     root_dir.join(DEFAULT_CONFIG_BASENAME)
 }
 
-pub(crate) fn args_after_subcommand(
-    args: &[std::ffi::OsString],
-    sub: &str,
-) -> Option<Vec<std::ffi::OsString>> {
-    let bin = args.get(0)?.clone();
-    let idx = args.iter().position(|a| a.to_string_lossy() == sub)?;
-    let mut out = Vec::with_capacity(1 + (args.len().saturating_sub(idx + 1)));
-    out.push(bin);
-    out.extend_from_slice(&args[idx + 1..]);
-    Some(out)
-}
-
-pub(crate) fn load_toml_doc(path: &PathBuf) -> Result<toml::Value, CliError> {
+pub(crate) fn load_toml_doc(path: &Path) -> Result<toml::Value, CliError> {
     let s = std::fs::read_to_string(path).map_err(|e| {
         CliError::RuntimeError(format!(
             "Could not read config file {}: {e}",
@@ -110,18 +103,6 @@ pub(crate) fn load_toml_doc(path: &PathBuf) -> Result<toml::Value, CliError> {
             path.display()
         ))
     })
-}
-
-fn is_default_root_and_config(cli: &Cli) -> bool {
-    // Root dir default check
-    let is_default_root = cli.root_dir.0 == default_root_dir();
-    debug!("is_default_root: {is_default_root}");
-    // Config default check (assuming your Cli default for -f is "defaults.toml")
-    // If your Cli default is something else, adjust this comparison accordingly.
-    let is_default_cfg = cli.config_file == None;
-    debug!("is_default_cfg: {is_default_cfg}");
-    debug!("cli.config_file: {:?}", cli.config_file);
-    is_default_root && is_default_cfg
 }
 
 fn default_config_header() -> String {
@@ -162,6 +143,29 @@ fn default_config_header() -> String {
         DEFAULT_CONFIG_BASENAME,
         DEFAULT_CONFIG_BASENAME,
     )
+}
+
+pub(crate) fn handle_conf_err<W1: Write, W2: Write>(
+    e: conf::Error,
+    out: &mut W1,
+    err: &mut W2,
+) -> Result<(), CliError> {
+    write_conf_error(&e, out, err);
+    if e.exit_code() == 0 {
+        Ok(())
+    } else {
+        Err(CliError::InvalidArgs(e.to_string()))
+    }
+}
+
+pub(crate) fn ensure_root_dir(root_dir: PathBuf) -> Result<PathBuf, CliError> {
+    if let Err(e) = std::fs::create_dir_all(&root_dir) {
+        return Err(CliError::RuntimeError(format!(
+            "Failed to create root dir {}: {e}",
+            root_dir.display()
+        )));
+    }
+    Ok(root_dir)
 }
 
 pub(crate) fn ensure_config_file_exists(cfg_path: &Path) -> Result<(), CliError> {
