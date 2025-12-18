@@ -37,9 +37,10 @@ jobs:
           cache-dependency-path: |
             frontend/pnpm-lock.yaml
 
-      - name: Update Rust stable
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: rustup toolchain install stable
+      - name: Use Rust stable
+        run: |
+          rustup toolchain install stable
+          rustup default stable
 
       - name: Extract project information
         id: project_info
@@ -58,7 +59,6 @@ jobs:
 
       # Preprocess Cargo.lock to ignore version fields for cache id hashing purposes:
       - name: Prepare Cargo.lock for caching (ignore workspace package version)
-        working-directory: ${{ env.PROJECT_DIR }}
         run: |
           awk '/\[\[package\]\]/{p=0} /name = "'"${PROJECT_NAME}"'"/{p=1} p && /version = /{next} 1' Cargo.lock \
             > Cargo.lock.no-version
@@ -67,15 +67,15 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles(format('{0}/Cargo.lock.no-version', env.PROJECT_DIR)) }}
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('Cargo.lock.no-version') }}
           restore-keys: |
             ${{ runner.os }}-cargo-registry-
 
       - name: Restore third-party dependencies cache
         uses: actions/cache@v3
         with:
-          path: ${{ env.PROJECT_DIR }}/target
-          key: ${{ runner.os }}-cargo-deps-${{ hashFiles(format('{0}/Cargo.lock.no-version', env.PROJECT_DIR)) }}
+          path: target
+          key: ${{ runner.os }}-cargo-deps-${{ hashFiles('Cargo.lock.no-version') }}
           restore-keys: |
             ${{ runner.os }}-cargo-deps-
 
@@ -104,30 +104,28 @@ jobs:
 
       - name: Run coverage report
         working-directory: ${{ env.PROJECT_DIR }}
-        run: just test-coverage --release && ls -lha ./target/llvm-cov/html
+        run: |
+          just test-coverage --release
+          ls -lha "${{ github.workspace }}/target/llvm-cov/html"
 
       - name: Inject meta information into index.html
-        working-directory: ${{ env.PROJECT_DIR }}
         run: |
           sed -i "/<\/body>/i <div style=\"position:fixed;bottom:10px;left:10px;font-size:12px;color:#666\">Project: ${PROJECT_NAME} | Branch: ${BRANCH_NAME} | <a href=\"${COMMIT_URL}\">Commit: ${COMMIT_SHA}</a></div>" \
-            ./target/llvm-cov/html/index.html
+            "${{ github.workspace }}/target/llvm-cov/html/index.html"
 
       - name: Stage Pages content
-        working-directory: ${{ env.PROJECT_DIR }}
         run: |
           rm -rf pages-root
           mkdir -p "pages-root/coverage/${BRANCH_NAME}"
-          cp -a target/llvm-cov/html/. "pages-root/coverage/${BRANCH_NAME}/"
+          cp -a "${{ github.workspace }}/target/llvm-cov/html/." "pages-root/coverage/${BRANCH_NAME}/"
 
       - name: Upload coverage site artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ${{ env.PROJECT_DIR }}/pages-root
+          path: pages-root
 
       - name: Remove project-specific artifacts
-        working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          # Remove crate-named outputs from target to avoid invalidating cache
           find target -type f -name "*${PROJECT_NAME}*" -print0 | xargs -0r rm -f
           find target -type d -name "*${PROJECT_NAME}*" -print0 | xargs -0r rm -rf
 
