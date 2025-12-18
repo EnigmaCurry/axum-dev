@@ -334,3 +334,14 @@ insert-test-data:
 
 dev: migrate insert-test-data serve
 
+# Show the list of files added/changed since the first commit on this branch
+template-changelog:
+    @set -euo pipefail; \
+    source ${FUNCS_SCRIPT}; \
+    template_changelog_files
+
+# Show the git diff since the first commit on this branch
+template-diff *args:
+    @set -euo pipefail; \
+    source ${FUNCS_SCRIPT}; \
+    template_diff {{args}}

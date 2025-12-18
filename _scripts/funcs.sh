@@ -126,3 +126,100 @@ check_emacs_unsaved_files() {
         return 1
     fi
 }
+
+template_changelog_files() {
+  set -euo pipefail
+
+  local base
+  base="$(git rev-list --reverse --first-parent HEAD | head -n1)"
+
+  # Skip set: files that were purely moved/copied out of template/ with no content changes.
+  local -A skip=()
+  while IFS=$'\t' read -r status old new; do
+    case "$status" in
+      R100|C100)
+        [[ "$old" == template/* ]] && skip["$new"]=1
+        ;;
+    esac
+  done < <(git diff --name-status -M --diff-filter=RC "${base}..HEAD")
+
+  git diff --name-only --diff-filter=AMCR "${base}..HEAD" \
+    | LC_ALL=C sort -u \
+    | while IFS= read -r f; do
+        # Drop pure moves from template/ (unchanged content)
+        [[ -n "${skip[$f]:-}" ]] && continue
+
+        # Find a base path to compare against (handles template/ -> root move)
+        local base_path=""
+        if git cat-file -e "${base}:${f}" 2>/dev/null; then
+          base_path="$f"
+        elif git cat-file -e "${base}:template/${f}" 2>/dev/null; then
+          base_path="template/${f}"
+        fi
+
+        # If not present in base at either location, treat as new/unknown -> include
+        if [[ -z "$base_path" ]]; then
+          printf '%s\n' "$f"
+          continue
+        fi
+
+        case "$f" in
+          .env-dist)
+            # Ignore if ONLY these keys changed (values may differ)
+            if (diff -U0 <(git show "${base}:${base_path}") "$f" || true) \
+              | awk '
+                  /^--- /    { next }
+                  /^\+\+\+ / { next }
+                  /^@@/      { next }
+                  /^[+-]/ {
+                    line = substr($0, 2)
+                    if (line ~ /^(ROOT_DIR|DOCKER_IMAGE)=/) next
+                    exit 1
+                  }
+                  END { exit 0 }
+                '
+            then
+              continue
+            fi
+            ;;
+        esac
+
+        printf '%s\n' "$f"
+      done
+}
+
+template_diff() {
+  set -euo pipefail
+  local base
+  base="$(git rev-list --reverse --first-parent HEAD | head -n1)"
+
+  # If paths are provided, treat them as a whitelist, but also include template/… paths
+  if (($#)); then
+    local -A seen=()
+    local -a paths=()
+    local p alt
+
+    for p in "$@"; do
+      # include exactly what user typed
+      if [[ -z "${seen[$p]:-}" ]]; then paths+=("$p"); seen["$p"]=1; fi
+
+      # include the "other side" so renames/moves can be shown
+      if [[ "$p" == template/* ]]; then
+        alt="${p#template/}"        # template/foo -> foo
+      else
+        alt="template/$p"           # foo -> template/foo
+      fi
+      if [[ -z "${seen[$alt]:-}" ]]; then paths+=("$alt"); seen["$alt"]=1; fi
+
+      # Optional: if you export APP, also map APP/... to template/PROJECT/...
+      if [[ -n "${APP:-}" && "$p" == "$APP/"* ]]; then
+        alt="template/PROJECT/${p#${APP}/}"
+        if [[ -z "${seen[$alt]:-}" ]]; then paths+=("$alt"); seen["$alt"]=1; fi
+      fi
+    done
+
+      git -c color.ui=always diff -M "${base}..HEAD" -- "${paths[@]}" | less -RSX
+  else
+      git -c color.ui=always diff -M "${base}..HEAD" | less -RSX
+  fi
+}
