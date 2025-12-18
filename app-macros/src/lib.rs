@@ -19,7 +19,7 @@ macro_rules! app_conf_root {
     ($(#[$meta:meta])* $vis:vis struct $name:ident $body:tt) => {
         $(#[$meta])*
         #[derive(Conf, Debug, Clone)]
-        #[conf(serde, env_prefix = "${APP_PREFIX}")]
+        #[conf(serde, env_prefix = "AXUM_DEV_")]
         $vis struct $name $body
     };
 }
