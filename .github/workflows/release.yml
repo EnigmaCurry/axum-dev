@@ -63,21 +63,27 @@ jobs:
           name: frontend-build
           path: ${{ github.workspace }}/frontend/build
 
-      - name: Update Rust stable
-        run: rustup toolchain install stable
-        working-directory: ${{ env.PROJECT_DIR }}
+      - name: Use Rust stable
+        run: |
+          rustup toolchain install stable
+          rustup default stable
 
       - name: Prepare Cargo.lock for caching
-        working-directory: ${{ env.PROJECT_DIR }}
+        working-directory: ${{ github.workspace }}
         run: |
-          PROJECT_NAME=$(grep '^name' Cargo.toml | sed 's/name = "\(.*\)"/\1/')
-          awk '/\[\[package\]\]/{p=0} /name = "'"${PROJECT_NAME}"'"/{p=1} p && /version = /{next} 1' Cargo.lock > Cargo.lock.no-version
+          set -euo pipefail
+
+          # Read the crate name from the crate's Cargo.toml, but read Cargo.lock from workspace root
+          PROJECT_NAME=$(grep '^name' "${{ env.PROJECT_DIR }}/Cargo.toml" | sed 's/name = "\(.*\)"/\1/')
+
+          awk '/\[\[package\]\]/{p=0} /name = "'"${PROJECT_NAME}"'"/{p=1} p && /version = /{next} 1' \
+            Cargo.lock > "${{ env.PROJECT_DIR }}/Cargo.lock.no-version"
 
       - name: Cache cargo registry
         uses: actions/cache@v3
         with:
           path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('axum-dev/Cargo.lock.no-version') }}
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles(format('{0}/Cargo.lock.no-version', env.PROJECT_DIR)) }}
           restore-keys: |
             ${{ runner.os }}-cargo-registry-
 
