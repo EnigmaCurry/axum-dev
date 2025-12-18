@@ -7,7 +7,7 @@ use conf::Conf;
 app_conf_root! {
     pub struct ServeConfig {
         /// CLI/env overrides for the server config.
-        #[conf(flatten)]
+        #[conf(flatten, serde(flatten))]
         pub app: AppConfig,
     }
 }
