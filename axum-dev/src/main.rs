@@ -65,27 +65,22 @@ where
 
     // If the user provided no subcommand (just the binary name),
     // pretend they ran `axum-dev --help` and print the same help output.
+    // No subcommand => behave like --help, but write into `out`
     if args_vec.len() <= 1 {
-        // We don't care about the return value; `--help` is always an error
-        // with exit_code() == 0, and `print()` writes the nicely formatted help.
         if let Err(e) = Cli::try_parse_from([env!("CARGO_BIN_NAME"), "--help"], std::env::vars_os())
         {
-            let _ = e.print(); // writes to stdout/stderr as appropriate
+            write_conf_error(&e, out, _err);
         }
         return Ok(());
     }
 
-    // --- Normal parsing path: CLI + env via Conf ---
     let cli = match Cli::try_parse_from(args_vec.clone(), std::env::vars_os()) {
         Ok(cli) => cli,
         Err(e) => {
-            // Let conf/clap produce the pretty message.
-            let _ = e.print();
+            write_conf_error(&e, out, _err);
             if e.exit_code() == 0 {
-                // Help/version/etc -> treat as success.
                 return Ok(());
             } else {
-                // Real invalid-args error -> bubble up.
                 return Err(CliError::InvalidArgs(e.to_string()));
             }
         }
@@ -99,7 +94,7 @@ where
 
     match cli.command {
         Commands::Completions(args) => {
-            write_completion::<Cli, _>(args.shell, None, &mut std::io::stdout())?;
+            write_completion::<Cli, _>(args.shell, None, out)?;
             Ok(())
         }
         Commands::Serve(serve_cfg) => {
@@ -141,7 +136,6 @@ fn serve<W1: Write, W2: Write>(
         }
     };
 
-    // --- TLS mode selection ---
     // --- TLS mode selection ---
     let tls_config = match cfg.tls.mode {
         TlsMode::None => {
@@ -482,6 +476,21 @@ fn ensure_root_dir(root_dir: PathBuf) -> Result<PathBuf, CliError> {
     Ok(root_dir)
 }
 
+fn write_conf_error<W1: Write, W2: Write>(e: &conf::Error, out: &mut W1, err: &mut W2) {
+    // In clap, help/version typically exit with code 0 (stdout-y),
+    // while real argument errors are nonzero (stderr-y).
+    let mut msg = e.to_string();
+    if !msg.ends_with('\n') {
+        msg.push('\n');
+    }
+
+    if e.exit_code() == 0 {
+        let _ = out.write_all(msg.as_bytes());
+    } else {
+        let _ = err.write_all(msg.as_bytes());
+    }
+}
+
 #[test]
 fn help_prints_when_no_subcommand() {
     let mut out = Vec::new();
@@ -500,6 +509,7 @@ fn help_prints_when_no_subcommand() {
     let actual = String::from_utf8(out).expect("stdout should be valid utf8");
 
     // Very loose assertion: just make sure it looks like help and mentions 'serve'.
+    assert!(actual.len() > 0, "help output is blank");
     assert!(
         actual.contains("Run the HTTP API server"),
         "help output did not mention the 'serve' subcommand.\nActual help:\n{actual}"

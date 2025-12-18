@@ -8,7 +8,7 @@
 //     ($(#[$meta:meta])* $vis:vis struct $name:ident $body:tt) => {
 //         $(#[$meta])*
 //         #[derive(Conf, Debug, Clone)]
-//         #[conf(serde, env_prefix = "AXUM_DEV_")]
+//         #[conf(serde, env_prefix = "MY_APP_")]
 //         $vis struct $name $body
 //     };
 // }
