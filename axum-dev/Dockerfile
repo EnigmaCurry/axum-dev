@@ -43,13 +43,15 @@ COPY Cargo.toml Cargo.lock ./
 # Copy workspace member manifests
 COPY ${APP_CRATE}/Cargo.toml ${APP_CRATE}/Cargo.toml
 COPY api-doc-macros/Cargo.toml api-doc-macros/Cargo.toml
+COPY app-macros/Cargo.toml app-macros/Cargo.toml
 
 # Use dummy sources so Cargo can load all workspace members
-RUN mkdir -p ${APP_CRATE}/src api-doc-macros/src && \
+RUN mkdir -p ${APP_CRATE}/src api-doc-macros/src app-macros/src && \
     echo "fn main() {}" > ${APP_CRATE}/src/main.rs && \
     echo "pub fn dummy() {}" > api-doc-macros/src/lib.rs && \
+    echo "pub fn dummy() {}" > app-macros/src/lib.rs && \
     cargo fetch && \
-    rm -rf ${APP_CRATE}/src api-doc-macros/src
+    rm -rf ${APP_CRATE}/src api-doc-macros/src app-macros/src
 
 # ---------- Copy full Rust workspace + frontend build -------------
 COPY . .
