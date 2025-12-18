@@ -16,5 +16,5 @@ pub struct NetworkConfig {
 
     /// Primary public hostname for this app (used as the default TLS CN).
     #[arg(long = "net-host", env = "NET_HOST")]
-    pub net_host: Option<String>,
+    pub host: Option<String>,
 }

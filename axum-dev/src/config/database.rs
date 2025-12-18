@@ -6,5 +6,5 @@ use serde::{Deserialize, Serialize};
 pub struct DatabaseConfig {
     /// Database URL for sqlx (or set DATABASE_URL).
     #[arg(long = "database-url", env = "DATABASE_URL")]
-    pub database_url: Option<String>,
+    pub url: Option<String>,
 }

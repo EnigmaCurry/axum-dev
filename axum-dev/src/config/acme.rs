@@ -19,7 +19,7 @@ pub struct AcmeDnsRegisterConfig {
 
     /// Primary public hostname.
     #[arg(long = "net-host", env = "NET_HOST")]
-    pub net_host: Option<String>,
+    pub host: Option<String>,
 
     /// Additional DNS SubjectAltNames (SANs) for the TLS certificate.
     ///

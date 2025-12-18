@@ -244,7 +244,7 @@ fn serve<W1: Write, W2: Write>(
 
             // (rest of your ACME code unchanged, now using `cache_dir`)
 
-            if let Some(ref host) = cfg.network.net_host
+            if let Some(ref host) = cfg.network.host
                 && !host.trim().is_empty()
             {
                 domains.push(host.clone());
@@ -314,7 +314,7 @@ fn serve<W1: Write, W2: Write>(
     };
 
     // --- Database + session config ---
-    let db_url = match cfg.clone().database.database_url {
+    let db_url = match cfg.clone().database.url {
         // Rewrite the default database path:
         None => {
             let db_path = root_dir.join("data.db");
@@ -326,11 +326,11 @@ fn serve<W1: Write, W2: Write>(
     };
 
     let session_secure = true;
-    let session_expiry_secs = cfg.session.session_expiry_seconds;
-    let session_check_secs = cfg.session.session_check_seconds;
+    let session_expiry_secs = cfg.session.expiry_seconds;
+    let session_check_secs = cfg.session.check_seconds;
 
     // --- Authentication method + trusted USER header options ---
-    let auth_method: AuthenticationMethod = cfg.auth.authentication_method;
+    let auth_method: AuthenticationMethod = cfg.auth.method;
 
     let header_name_str = cfg.auth.trusted_header_name.as_str();
 
@@ -452,7 +452,7 @@ fn acme_dns_register<W1: Write, W2: Write>(
     // Build domain list from NET_HOST + TLS_SANS for CNAME hints
     let mut domains: Vec<String> = Vec::new();
 
-    if let Some(ref host) = args.net_host
+    if let Some(ref host) = args.host
         && !host.trim().is_empty()
     {
         domains.push(host.clone());

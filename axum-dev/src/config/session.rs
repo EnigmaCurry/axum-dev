@@ -8,11 +8,11 @@ pub struct SessionConfig {
     /// (default 60, or set SESSION_CHECK_SECONDS).
     #[arg(long = "session-check-seconds", env = "SESSION_CHECK_SECONDS")]
     #[conf(default(60))]
-    pub session_check_seconds: u64,
+    pub check_seconds: u64,
 
     /// Session inactivity timeout in seconds.
     /// (default 604800 = 7 days, or set SESSION_EXPIRY_SECONDS).
     #[arg(long = "session-expiry-seconds", env = "SESSION_EXPIRY_SECONDS")]
     #[conf(default(60480))]
-    pub session_expiry_seconds: u64,
+    pub expiry_seconds: u64,
 }

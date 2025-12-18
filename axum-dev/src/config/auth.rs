@@ -9,7 +9,7 @@ pub struct AuthConfig {
     /// Authentication method to use: forward_auth or username_password.
     #[arg(long = "auth-method", env = "AUTH_METHOD")]
     #[conf(default(AuthenticationMethod::UsernamePassword))]
-    pub authentication_method: AuthenticationMethod,
+    pub method: AuthenticationMethod,
 
     /// Header to read the authenticated user email from.
     #[arg(long = "auth-trusted-header-name", env = "AUTH_TRUSTED_HEADER_NAME")]
@@ -38,10 +38,7 @@ pub struct AuthConfig {
 
 impl AuthConfig {
     pub fn validate(&self) -> Result<(), CliError> {
-        if matches!(
-            self.authentication_method,
-            AuthenticationMethod::ForwardAuth
-        ) && self.trusted_proxy.is_none()
+        if matches!(self.method, AuthenticationMethod::ForwardAuth) && self.trusted_proxy.is_none()
         {
             return Err(CliError::InvalidArgs(
                 "auth-trusted-proxy is required when auth-method=forward_auth".into(),
