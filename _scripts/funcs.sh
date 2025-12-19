@@ -245,73 +245,91 @@ template_diff() {
 
 fresh_template_branch() {
     set -euo pipefail
-    local __tmp_remote="tmp-import-remote"
+    export TMP_REMOTE="tmp-import-remote"
 
     # -----------------------------------------------------------------
-    # 1️⃣  Verify we are inside a git repo and that the work‑tree is clean
+    # Helper: remove the temporary remote (used by the trap and by us)
     # -----------------------------------------------------------------
-    check_deps git                    # make sure git is on PATH
-    if ! git rev-parse --git-dir >/dev/null 2>&1; then
-        fault "Current directory is not a git repository."
-    fi
+    _clean_tmp_remote() {
+        git remote get-url "${TMP_REMOTE}" >/dev/null 2>&1 && \
+            git remote remove "${TMP_REMOTE}" 2>/dev/null || true
+    }
 
-    # `git status --porcelain` prints nothing when everything is committed
-    if [[ -n "$(git status --porcelain)" ]]; then
-        fault "Working tree is dirty – please commit or stash your changes first."
-    fi
+    # Ensure the temporary remote is removed even if we exit early
+    trap '_clean_tmp_remote' EXIT
 
     # -----------------------------------------------------------------
-    # 2️⃣  Ask for the new orphan‑branch name
+    # Sanity checks
+    # -----------------------------------------------------------------
+    check_deps git
+    git rev-parse --git-dir >/dev/null 2>&1 || fault "Not a git repository."
+    [[ -z "$(git status --porcelain)" ]] || fault "Working tree is dirty."
+
+    # -----------------------------------------------------------------
+    # Get a name for the new orphan branch
     # -----------------------------------------------------------------
     ask_no_blank "Enter a name for the new orphan branch" NEW_ORPHAN_BRANCH ""
     debug_var NEW_ORPHAN_BRANCH
 
-    # -----------------------------------------------------------------
-    # 3️⃣  Make sure the branch does **not** already exist (locally or remotely)
-    # -----------------------------------------------------------------
+    # Abort if the branch already exists (local or remote)
     if git show-ref --verify --quiet "refs/heads/${NEW_ORPHAN_BRANCH}" \
         || git ls-remote --heads . "${NEW_ORPHAN_BRANCH}" | grep -q "${NEW_ORPHAN_BRANCH}"; then
-        fault "A branch named '${NEW_ORPHAN_BRANCH}' already exists."
+        fault "Branch '${NEW_ORPHAN_BRANCH}' already exists."
     fi
 
     # -----------------------------------------------------------------
-    # 4️⃣  Create the orphan branch and wipe the index/working tree
+    # Create a clean orphan branch
     # -----------------------------------------------------------------
     exe git checkout --orphan "${NEW_ORPHAN_BRANCH}"
-    # The checkout leaves the previous files in the work‑tree; remove them.
-    exe git rm -rf .                     # remove tracked files from index & wd
-    # Also get rid of any untracked files that might have been left behind.
+    exe git rm -rf .
     exe git clean -fdx
 
     # -----------------------------------------------------------------
-    # 5️⃣  Add the temporary remote (use $GIT_TEMPLATE_REMOTE or default)
+    # Make sure the temporary remote is gone, then add it again
     # -----------------------------------------------------------------
-    : "${GIT_TEMPLATE_REMOTE:=https://github.com/EnigmaCurry/rust-axum-template.git}"
-    debug_var GIT_TEMPLATE_REMOTE
-    exe git remote remove "${__tmp_remote}" || true
-    exe git remote add "${__tmp_remote}" "${GIT_TEMPLATE_REMOTE}"
-    exe git fetch "${__tmp_remote}"     # bring down objects for the branch we need
+    _clean_tmp_remote
+    : "${REMOTE:=https://github.com/EnigmaCurry/rust-axum-template.git}"
+    debug_var REMOTE
+    exe git remote add "${TMP_REMOTE}" "${REMOTE}"
+    exe git fetch "${TMP_REMOTE}"
 
     # -----------------------------------------------------------------
-    # 6️⃣  Reset the orphan branch to the remote’s tip
+    # Verify the remote branch exists and capture its SHA‑1
     # -----------------------------------------------------------------
-    : "${GIT_BRANCH:=master}"
-    debug_var GIT_BRANCH
-
-    # Verify that the remote actually has the requested branch
-    if ! git rev-parse --verify "${__tmp_remote}/${GIT_BRANCH}" >/dev/null 2>&1; then
-        fault "Remote '${GIT_TEMPLATE_REMOTE}' does not contain branch '${GIT_BRANCH}'."
+    : "${BRANCH:=master}"
+    debug_var BRANCH
+    if ! git rev-parse --verify "${TMP_REMOTE}/${BRANCH}" >/dev/null 2>&1; then
+        fault "Remote '${REMOTE}' does not contain branch '${BRANCH}'."
     fi
-
-    exe git reset --hard "${__tmp_remote}/${GIT_BRANCH}"
-
-    # -----------------------------------------------------------------
-    # 7️⃣  Clean up – remove the temporary remote
-    # -----------------------------------------------------------------
-    exe git remote remove "${__tmp_remote}"
+    # The SHA‑1 we are about to squash
+    REMOTE_SHA=$(git rev-parse "${TMP_REMOTE}/${BRANCH}")
 
     # -----------------------------------------------------------------
-    # 8️⃣  Success message
+    # Bring the remote snapshot into the empty work‑tree
     # -----------------------------------------------------------------
-    stderr "✅  Fresh template branch '${NEW_ORPHAN_BRANCH}' created and set to '${GIT_TEMPLATE_REMOTE}:${GIT_BRANCH}'."
+    exe git checkout "${TMP_REMOTE}/${BRANCH}" -- .
+
+    # -----------------------------------------------------------------
+    # Stage everything and create a **single** commit.
+    # The message now contains remote, branch and SHA.
+    # -----------------------------------------------------------------
+    exe git add -A
+    COMMIT_MSG="init: ${REMOTE} ${BRANCH} ${REMOTE_SHA}"
+    exe git commit -m "${COMMIT_MSG}"
+
+    # -----------------------------------------------------------------
+    # Sanity‑check that we really have exactly one commit
+    # -----------------------------------------------------------------
+    [[ $(git rev-list --count HEAD) -eq 1 ]] || fault "Unexpected commit count."
+
+    # -----------------------------------------------------------------
+    # Clean up the temporary remote (the trap will also do this on EXIT)
+    # -----------------------------------------------------------------
+    exe git remote remove "${TMP_REMOTE}"
+
+    # -----------------------------------------------------------------
+    # Success message
+    # -----------------------------------------------------------------
+    stderr
+    stderr "✅ Fresh template branch '${NEW_ORPHAN_BRANCH}' created – single commit \"${COMMIT_MSG}\"."
 }
