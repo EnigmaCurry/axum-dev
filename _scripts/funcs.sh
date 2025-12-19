@@ -129,11 +129,12 @@ check_emacs_unsaved_files() {
 
 template_changelog_files() {
   set -euo pipefail
-
   local base
   base="$(git rev-list --reverse --first-parent HEAD | head -n1)"
 
-  # Skip set: files that were purely moved/copied out of template/ with no content changes.
+  # ------------------------------------------------------------------
+  # 1️⃣  Detect pure moves/copies out of the `template/` tree.
+  # ------------------------------------------------------------------
   local -A skip=()
   while IFS=$'\t' read -r status old new; do
     case "$status" in
@@ -143,13 +144,29 @@ template_changelog_files() {
     esac
   done < <(git diff --name-status -M --diff-filter=RC "${base}..HEAD")
 
+  # ------------------------------------------------------------------
+  # 2️⃣  Files we always want to ignore, no matter what.
+  # ------------------------------------------------------------------
+  # (you can add more entries here, e.g. LICENSE, CONTRIBUTING.md, …)
+  local -a always_skip=( README.md DEVELOPMENT.md )
+
+  # ------------------------------------------------------------------
+  # 3️⃣  Walk the changed‑file list, apply the various filters.
+  # ------------------------------------------------------------------
   git diff --name-only --diff-filter=AMCR "${base}..HEAD" \
     | LC_ALL=C sort -u \
     | while IFS= read -r f; do
-        # Drop pure moves from template/ (unchanged content)
+
+        # ── a)  Skip pure moves/copies from the template tree
         [[ -n "${skip[$f]:-}" ]] && continue
 
-        # Find a base path to compare against (handles template/ -> root move)
+        # ── b)  Skip the hard‑coded list from step 2
+        for ignore in "${always_skip[@]}"; do
+          [[ "$f" == "$ignore" ]] && continue 2   # ‘continue 2’ jumps out of the for‑loop *and* the while‑loop
+        done
+
+        # ── c)  Find the path we have to compare against in the base commit.
+        #      Handles both “template/foo → foo” and “foo unchanged”.
         local base_path=""
         if git cat-file -e "${base}:${f}" 2>/dev/null; then
           base_path="$f"
@@ -157,15 +174,16 @@ template_changelog_files() {
           base_path="template/${f}"
         fi
 
-        # If not present in base at either location, treat as new/unknown -> include
+        # ── d)  If the file does not exist in the base commit at either location,
+        #      it is a brand‑new file → always include it.
         if [[ -z "$base_path" ]]; then
           printf '%s\n' "$f"
           continue
         fi
 
+        # ── e)  Special handling for .env‑dist (your original logic)
         case "$f" in
           .env-dist)
-            # Ignore if ONLY these keys changed (values may differ)
             if (diff -U0 <(git show "${base}:${base_path}") "$f" || true) \
               | awk '
                   /^--- /    { next }
@@ -184,6 +202,7 @@ template_changelog_files() {
             ;;
         esac
 
+        # ── f)  If we got here the file is “interesting” → emit it.
         printf '%s\n' "$f"
       done
 }

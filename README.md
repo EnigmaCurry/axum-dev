@@ -271,3 +271,23 @@ Put this in your `~/.config/fish/config.fish` or similar:
 # Enable completion for Fish:
 axum-dev completions fish > ~/.config/fish/completions/axum-dev.fish
 ```
+
+
+## Diff current project with the template
+
+Sometimes it's useful to show all of the changes to the project since
+the template was initialized. When you created the project from the
+template, it created the first commit containing all of the template
+files. You can use git diff to figure out the changeset. The Justfile
+wraps these commands for you:
+
+```
+## List only the names of the files added/modified since init:
+just template-changelog
+
+## List the full diff between the current state and first commit:
+just template-diff
+
+## List the differences of a couple of files:
+just template-diff Cargo.toml README.md
+```
