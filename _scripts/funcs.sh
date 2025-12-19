@@ -242,3 +242,76 @@ template_diff() {
       git -c color.ui=always diff -M "${base}..HEAD" | less -RSX
   fi
 }
+
+fresh_template_branch() {
+    set -euo pipefail
+    local __tmp_remote="tmp-import-remote"
+
+    # -----------------------------------------------------------------
+    # 1️⃣  Verify we are inside a git repo and that the work‑tree is clean
+    # -----------------------------------------------------------------
+    check_deps git                    # make sure git is on PATH
+    if ! git rev-parse --git-dir >/dev/null 2>&1; then
+        fault "Current directory is not a git repository."
+    fi
+
+    # `git status --porcelain` prints nothing when everything is committed
+    if [[ -n "$(git status --porcelain)" ]]; then
+        fault "Working tree is dirty – please commit or stash your changes first."
+    fi
+
+    # -----------------------------------------------------------------
+    # 2️⃣  Ask for the new orphan‑branch name
+    # -----------------------------------------------------------------
+    ask_no_blank "Enter a name for the new orphan branch" NEW_ORPHAN_BRANCH ""
+    debug_var NEW_ORPHAN_BRANCH
+
+    # -----------------------------------------------------------------
+    # 3️⃣  Make sure the branch does **not** already exist (locally or remotely)
+    # -----------------------------------------------------------------
+    if git show-ref --verify --quiet "refs/heads/${NEW_ORPHAN_BRANCH}" \
+        || git ls-remote --heads . "${NEW_ORPHAN_BRANCH}" | grep -q "${NEW_ORPHAN_BRANCH}"; then
+        fault "A branch named '${NEW_ORPHAN_BRANCH}' already exists."
+    fi
+
+    # -----------------------------------------------------------------
+    # 4️⃣  Create the orphan branch and wipe the index/working tree
+    # -----------------------------------------------------------------
+    exe git checkout --orphan "${NEW_ORPHAN_BRANCH}"
+    # The checkout leaves the previous files in the work‑tree; remove them.
+    exe git rm -rf .                     # remove tracked files from index & wd
+    # Also get rid of any untracked files that might have been left behind.
+    exe git clean -fdx
+
+    # -----------------------------------------------------------------
+    # 5️⃣  Add the temporary remote (use $GIT_TEMPLATE_REMOTE or default)
+    # -----------------------------------------------------------------
+    : "${GIT_TEMPLATE_REMOTE:=https://github.com/EnigmaCurry/rust-axum-template.git}"
+    debug_var GIT_TEMPLATE_REMOTE
+    exe git remote remove "${__tmp_remote}" || true
+    exe git remote add "${__tmp_remote}" "${GIT_TEMPLATE_REMOTE}"
+    exe git fetch "${__tmp_remote}"     # bring down objects for the branch we need
+
+    # -----------------------------------------------------------------
+    # 6️⃣  Reset the orphan branch to the remote’s tip
+    # -----------------------------------------------------------------
+    : "${GIT_BRANCH:=master}"
+    debug_var GIT_BRANCH
+
+    # Verify that the remote actually has the requested branch
+    if ! git rev-parse --verify "${__tmp_remote}/${GIT_BRANCH}" >/dev/null 2>&1; then
+        fault "Remote '${GIT_TEMPLATE_REMOTE}' does not contain branch '${GIT_BRANCH}'."
+    fi
+
+    exe git reset --hard "${__tmp_remote}/${GIT_BRANCH}"
+
+    # -----------------------------------------------------------------
+    # 7️⃣  Clean up – remove the temporary remote
+    # -----------------------------------------------------------------
+    exe git remote remove "${__tmp_remote}"
+
+    # -----------------------------------------------------------------
+    # 8️⃣  Success message
+    # -----------------------------------------------------------------
+    stderr "✅  Fresh template branch '${NEW_ORPHAN_BRANCH}' created and set to '${GIT_TEMPLATE_REMOTE}:${GIT_BRANCH}'."
+}

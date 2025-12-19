@@ -345,3 +345,8 @@ template-diff *args:
     @set -euo pipefail; \
     source ${FUNCS_SCRIPT}; \
     template_diff
+
+fresh-template:
+    @set -euo pipefail; \
+    source ${FUNCS_SCRIPT}; \
+    fresh_template_branch
