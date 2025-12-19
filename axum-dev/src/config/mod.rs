@@ -22,7 +22,7 @@ use std::env;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use tracing::{debug, info};
+use tracing::info;
 
 const DEFAULT_CONFIG_BASENAME: &str = "defaults.toml";
 

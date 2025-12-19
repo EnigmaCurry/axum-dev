@@ -1,5 +1,5 @@
 use conf::completion::write_completion;
-use config::cli::{args_after_subcommand, write_conf_error};
+use config::cli::{args_after_subcommand, normalize_verbosity_args, write_conf_error};
 use config::{AppConfig, build_log_level, handle_conf_err};
 use config::{
     ServeConfig, ensure_config_file_exists, ensure_root_dir, load_toml_doc, resolve_config_path,
@@ -60,6 +60,8 @@ where
         return Ok(());
     }
 
+    // Pre-process args for verbosity setting (allows extra extra verbose with `-vvv`)
+    let args_vec = normalize_verbosity_args(args_vec);
     // Normal invocation:
     let cli = match Cli::try_parse_from(args_vec.clone(), std::env::vars_os()) {
         Ok(cli) => cli,
@@ -86,7 +88,7 @@ where
         }
         Commands::Serve(ref _first_pass_cfg) => {
             let root_dir = ensure_root_dir(cli.root_dir.clone().0)?;
-            info!("root directory (app data): {}", cli.root_dir);
+            info!("Root directory (app data): {}", cli.root_dir);
 
             let cfg_path = resolve_config_path(&cli, &root_dir);
             ensure_config_file_exists(&cfg_path)?;

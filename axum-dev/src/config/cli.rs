@@ -1,4 +1,5 @@
-use std::{env, fmt, io::Write, path::PathBuf, str::FromStr};
+use std::ffi::{OsStr, OsString};
+use std::{fmt, io::Write, path::PathBuf, str::FromStr};
 
 use crate::{config::default_root_dir, errors::CliError};
 
@@ -37,8 +38,7 @@ pub struct Cli {
     #[arg(long)]
     pub log: Option<String>,
 
-    /// Increase verbosity. You can keep your existing semantics,
-    /// or simplify this to `bool` and adjust `build_log_level`.
+    /// Increase verbosity. Can be specified multiple times like -vvvv
     #[arg(short = 'v')]
     #[conf(default(0u8))]
     pub verbose: u8,
@@ -117,4 +117,85 @@ pub(crate) fn args_after_subcommand(
     out.push(bin);
     out.extend_from_slice(&args[idx + 1..]);
     Some(out)
+}
+
+pub fn normalize_verbosity_args<I>(args: I) -> Vec<OsString>
+where
+    I: IntoIterator<Item = OsString>,
+{
+    // Keep this list in sync with your Commands enum variants.
+    const SUBCOMMANDS: &[&str] = &["serve", "acme-dns-register", "completions"];
+
+    let mut it = args.into_iter();
+
+    // argv[0]
+    let mut out: Vec<OsString> = Vec::new();
+    let Some(bin) = it.next() else { return out };
+    out.push(bin);
+
+    let mut counted: u8 = 0;
+    let mut explicit: Option<u8> = None;
+
+    // Collect all non-verbosity args here (preserving order)
+    let mut rest: Vec<OsString> = Vec::new();
+
+    while let Some(arg) = it.next() {
+        let s = arg.to_string_lossy();
+
+        // -v
+        if s == "-v" {
+            // If next token is a number, treat as explicit "-v 2"
+            if let Some(peek) = it.next() {
+                if let Ok(n) = peek.to_string_lossy().parse::<u8>() {
+                    explicit = Some(n);
+                } else {
+                    // Not a number => this is just a flag occurrence, keep the peek
+                    counted = counted.saturating_add(1);
+                    rest.push(peek);
+                }
+            } else {
+                counted = counted.saturating_add(1);
+            }
+            continue;
+        }
+
+        // -vvv
+        if s.starts_with('-') && s.len() > 2 && s[1..].chars().all(|c| c == 'v') {
+            counted = counted.saturating_add((s.len() - 1).min(u8::MAX as usize) as u8);
+            continue;
+        }
+
+        // -v=3
+        if let Some(rest_num) = s.strip_prefix("-v=") {
+            if let Ok(n) = rest_num.parse::<u8>() {
+                explicit = Some(n);
+                continue;
+            }
+        }
+
+        // otherwise keep arg
+        rest.push(arg);
+    }
+
+    let level = explicit.unwrap_or(counted);
+    if level == 0 {
+        out.extend(rest);
+        return out;
+    }
+
+    // Find insertion point: right before the subcommand token (if present)
+    let insert_at = rest
+        .iter()
+        .position(|a| {
+            let a = a.to_string_lossy();
+            SUBCOMMANDS.iter().any(|&sc| sc == a)
+        })
+        .unwrap_or(rest.len());
+
+    out.extend(rest[..insert_at].iter().cloned());
+    out.push(OsString::from("-v"));
+    out.push(OsString::from(level.to_string()));
+    out.extend(rest[insert_at..].iter().cloned());
+
+    out
 }
