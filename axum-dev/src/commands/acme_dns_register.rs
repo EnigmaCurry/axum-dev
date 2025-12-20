@@ -2,8 +2,9 @@ use std::io::Write;
 
 use crate::{
     config::AcmeDnsRegisterConfig, ensure_root_dir, errors::CliError,
-    tls::dns::register_acme_dns_account,
+    tls::dns::register_acme_dns_account, util::write_files::create_private_dir_all_0700_sync,
 };
+use anyhow::Context;
 
 pub fn acme_dns_register<W1: Write, W2: Write>(
     args: AcmeDnsRegisterConfig,
@@ -15,12 +16,9 @@ pub fn acme_dns_register<W1: Write, W2: Write>(
     // Where to store creds:
     let cache_dir = root_dir.join("tls-cache");
 
-    if let Err(e) = std::fs::create_dir_all(&cache_dir) {
-        return Err(CliError::RuntimeError(format!(
-            "Failed to create TLS cache dir {}: {e}",
-            cache_dir.display()
-        )));
-    }
+    create_private_dir_all_0700_sync(&cache_dir).context((|| {
+        format!("TLS cache dir invalid: {}", cache_dir.display())
+    })())?;
 
     // Build domain list from NET_HOST + TLS_SANS for CNAME hints
     let mut domains: Vec<String> = Vec::new();

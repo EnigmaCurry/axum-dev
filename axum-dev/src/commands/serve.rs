@@ -3,16 +3,17 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use axum::http::HeaderName;
-use tracing::{debug, error, info};
-
 use crate::{
     config::{AppConfig, TlsAcmeChallenge, TlsMode},
     ensure_root_dir,
     errors::CliError,
     middleware::{self, auth::AuthenticationMethod},
     server,
+    util::write_files::create_private_dir_all_0700_sync,
 };
+use anyhow::Context;
+use axum::http::HeaderName;
+use tracing::{debug, error, info};
 
 pub struct ServePlan {
     pub addr: SocketAddr,
@@ -129,12 +130,9 @@ fn build_tls_config(cfg: &AppConfig, root_dir: &Path) -> Result<server::TlsConfi
 
         TlsMode::Acme => {
             let cache_dir: PathBuf = root_dir.join("tls-cache");
-            std::fs::create_dir_all(&cache_dir).map_err(|e| {
-                CliError::RuntimeError(format!(
-                    "Failed to create TLS cache dir {}: {e}",
-                    cache_dir.display()
-                ))
-            })?;
+            create_private_dir_all_0700_sync(&cache_dir).context((|| {
+                format!("TLS cache dir invalid: {}", cache_dir.display())
+            })())?;
 
             let domains = build_acme_domains(cfg)?;
             let directory_url = cfg.tls.acme_directory_url.clone();

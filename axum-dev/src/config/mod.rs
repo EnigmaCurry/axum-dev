@@ -16,6 +16,7 @@ pub use session::SessionConfig;
 pub mod tls;
 pub use tls::{TlsAcmeChallenge, TlsConfig, TlsMode};
 pub mod log;
+use anyhow::Context;
 use conf::Conf;
 pub use log::build_log_level;
 use std::env;
@@ -30,6 +31,7 @@ use serde::{Deserialize, Serialize};
 use std::{fmt, ops::Deref, str::FromStr};
 
 use crate::errors::CliError;
+use crate::util::write_files::create_private_dir_all_0700_sync;
 
 #[derive(Conf, Debug, Clone, Serialize, Deserialize)]
 #[conf(serde)]
@@ -159,7 +161,7 @@ pub(crate) fn handle_conf_err<W1: Write, W2: Write>(
 }
 
 pub(crate) fn ensure_root_dir(root_dir: PathBuf) -> Result<PathBuf, CliError> {
-    if let Err(e) = std::fs::create_dir_all(&root_dir) {
+    if let Err(e) = create_private_dir_all_0700_sync(&root_dir) {
         return Err(CliError::RuntimeError(format!(
             "Failed to create root dir {}: {e}",
             root_dir.display()
@@ -178,12 +180,8 @@ pub(crate) fn ensure_config_file_exists(cfg_path: &Path) -> Result<(), CliError>
     // If basename is defaults.toml and it's missing: create it once with header.
     if is_defaults && !cfg_path.exists() {
         if let Some(parent) = cfg_path.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| {
-                CliError::RuntimeError(format!(
-                    "Error creating config directory {}: {e}",
-                    parent.display()
-                ))
-            })?;
+            create_private_dir_all_0700_sync(parent)
+                .context((|| format!("data directory invalid: {}", parent.display()))())?;
         }
 
         match OpenOptions::new()

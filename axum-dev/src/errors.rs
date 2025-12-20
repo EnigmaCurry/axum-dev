@@ -29,6 +29,10 @@ pub enum CliError {
     /// The inner string is printed as-is by main().
     #[error("{0}")]
     RuntimeError(String),
+
+    /// Runtime failures (server errors, ACME flows, etc).
+    #[error("{0:#}")]
+    Anyhow(#[from] anyhow::Error),
 }
 
 //

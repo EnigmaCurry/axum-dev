@@ -13,6 +13,8 @@ use instant_acme::{
 };
 use serde_json;
 
+use crate::util::write_files::create_private_dir_all_0700;
+
 /// Abstraction over “something that can set TXT records for ACME DNS-01”.
 ///
 /// The `domain` parameter is the ACME identifier (e.g. `example.com` or
@@ -394,12 +396,14 @@ async fn create_or_load_account(
     let json = serde_json::to_vec_pretty(&creds)
         .context("failed to serialize ACME account credentials to JSON")?;
 
-    fs::create_dir_all(cache_dir).await.with_context(|| {
-        format!(
-            "failed to create ACME cache dir {} for account credentials",
-            cache_dir.display()
-        )
-    })?;
+    create_private_dir_all_0700(cache_dir)
+        .await
+        .with_context(|| {
+            format!(
+                "failed to create ACME cache dir {} for account credentials",
+                cache_dir.display()
+            )
+        })?;
 
     fs::write(&cred_path, &json).await.with_context(|| {
         format!(
@@ -422,7 +426,7 @@ pub async fn register_acme_dns_account(
     allow_from: Option<&[String]>,
 ) -> Result<(Credentials, bool)> {
     // Ensure cache dir exists
-    tokio::fs::create_dir_all(cache_dir)
+    create_private_dir_all_0700(cache_dir)
         .await
         .with_context(|| format!("failed to create tls cache dir '{}'", cache_dir.display()))?;
 

@@ -14,7 +14,9 @@ use crate::{
             delete_cached_pair, read_private_tls_file, read_tls_file, validate_self_signed_cert_pem,
         },
     },
-    util::write_files::{atomic_write_file_0600, validate_private_dir_0700},
+    util::write_files::{
+        atomic_write_file_0600, create_private_dir_all_0700, validate_private_dir_0700,
+    },
 };
 use anyhow::Context;
 use axum_server::{Handle, tls_rustls::RustlsConfig};
@@ -318,9 +320,9 @@ async fn serve_acme_tls_alpn01(
 ) -> anyhow::Result<()> {
     use std::sync::Arc;
 
-    tokio::fs::create_dir_all(&cache_dir)
+    create_private_dir_all_0700(&cache_dir)
         .await
-        .with_context(|| format!("failed to create TLS cache dir '{}'", cache_dir.display()))?;
+        .map_err(|e| anyhow::anyhow!("TLS cache dir invalid: {e:#}"))?;
 
     // 🔐 Prevent races / snooping in this directory.
     validate_private_dir_0700(&cache_dir).await?;
@@ -383,7 +385,9 @@ async fn serve_acme_dns01(
     contact_email: Option<String>,
     acme_dns_api_base: String,
 ) -> anyhow::Result<()> {
-    tokio::fs::create_dir_all(&cache_dir).await?;
+    create_private_dir_all_0700(&cache_dir)
+        .await
+        .map_err(|e| anyhow::anyhow!("TLS cache dir invalid: {e:#}"))?;
 
     // 🔐 Prevent races / snooping in this directory.
     validate_private_dir_0700(&cache_dir).await?;
@@ -478,12 +482,12 @@ async fn load_or_generate_self_signed(
     sans: Vec<String>,
     valid_days: u32,
 ) -> anyhow::Result<(Vec<u8>, Vec<u8>)> {
-    use tokio::fs;
-
     let expected_dn = default_self_signed_dn();
 
     if let Some(dir) = cache_dir.as_ref() {
-        fs::create_dir_all(&dir).await?;
+        create_private_dir_all_0700(&dir)
+            .await
+            .map_err(|e| anyhow::anyhow!("TLS cache dir invalid: {e:#}"))?;
         validate_private_dir_0700(dir).await?;
 
         let cert_path = dir.join("self_signed_cert.pem");
