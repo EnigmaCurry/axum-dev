@@ -1,28 +1,42 @@
+use ::time::{Duration, OffsetDateTime};
 use anyhow::{Context, bail};
 use std::path::Path;
 
-use super::generate::SelfSignedDn;
+use super::{cert_details::CertDetails, generate::SelfSignedDn};
 use rustls_pemfile::certs as load_pem_certs;
 use tokio::fs;
 use x509_parser::prelude::*;
 
-/// Validate:
-///  - certificate is currently valid (not expired, not-before is in the past)
-///  - subject DN matches *exactly* our expected DN (and contains no extra attributes)
-///  - issuer DN matches the subject (self-signed)
+/// Validate cert:
+/// Check expected issuer and common names.
 pub fn validate_self_signed_cert_pem(
     cert_pem: &[u8],
     expected: &SelfSignedDn,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<CertDetails> {
     let der = extract_single_cert_der(cert_pem)?;
     let (_rem, x509) =
         parse_x509_certificate(&der).map_err(|e| anyhow::anyhow!("x509 parse error: {e}"))?;
 
-    validate_validity_now(&x509)?;
+    // enforce invariants
     validate_subject_dn_exact(&x509, &expected.organization, &expected.common_name)?;
     validate_issuer_matches_subject(&x509)?;
+    validate_validity_now(&x509)?;
 
-    Ok(())
+    // details
+    let validity = x509.validity();
+
+    let not_before: OffsetDateTime = validity.not_before.to_datetime();
+    let not_after: OffsetDateTime = validity.not_after.to_datetime();
+
+    let now = OffsetDateTime::now_utc();
+
+    Ok(CertDetails::new(
+        not_before,
+        not_after,
+        now,
+        x509.subject().to_string(),
+        x509.issuer().to_string(),
+    ))
 }
 
 fn extract_single_cert_der(cert_pem: &[u8]) -> anyhow::Result<Vec<u8>> {

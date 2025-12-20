@@ -501,11 +501,15 @@ async fn load_or_generate_self_signed(
             let key_pem = read_private_tls_file(&key_path).await?;
 
             match validate_self_signed_cert_pem(&cert_pem, &expected_dn) {
-                Ok(()) => {
+                Ok(details) => {
                     info!(
                         "Loading cached self-signed TLS certificate from '{}' and key from '{}'",
                         cert_path.display(),
                         key_path.display()
+                    );
+                    info!(
+                        "cached self-signed cert OK; expires at {} (remaining: {})",
+                        details.not_after, details.remaining_human
                     );
                     return Ok((cert_pem, key_pem));
                 }
