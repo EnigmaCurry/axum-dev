@@ -11,7 +11,8 @@ use crate::{
             generate_self_signed_with_validity,
         },
         self_signed_cache::{
-            delete_cached_pair, read_private_tls_file, read_tls_file, validate_self_signed_cert_pem,
+            delete_cached_pair, inspect_self_signed_cert_pem, read_private_tls_file, read_tls_file,
+            validate_self_signed_cert_pem,
         },
     },
     util::write_files::{
@@ -500,23 +501,23 @@ async fn load_or_generate_self_signed(
             let cert_pem = read_tls_file(&cert_path).await?;
             let key_pem = read_private_tls_file(&key_path).await?;
 
+            let details = inspect_self_signed_cert_pem(&cert_pem)
+                .context("failed to inspect cached self-signed certificate")?;
+
             match validate_self_signed_cert_pem(&cert_pem, &expected_dn) {
-                Ok(details) => {
+                Ok(()) => {
                     info!(
-                        "Loading cached self-signed TLS certificate from '{}' and key from '{}'",
+                        "Loading cached self-signed TLS certificate from '{}' (expires {}, remaining {})",
                         cert_path.display(),
-                        key_path.display()
-                    );
-                    info!(
-                        "cached self-signed cert OK; expires at {} (remaining: {})",
-                        details.not_after, details.remaining_human
+                        details.not_after,
+                        details.remaining_human,
                     );
                     return Ok((cert_pem, key_pem));
                 }
                 Err(err) => {
                     info!(
-                        "Cached self-signed cert/key invalid ({}); deleting and regenerating",
-                        err
+                        "Cached self-signed cert invalid (expires {}, remaining {}): {err}; deleting and regenerating",
+                        details.not_after, details.remaining_human,
                     );
                     delete_cached_pair(&cert_path, &key_path).await?;
                 }

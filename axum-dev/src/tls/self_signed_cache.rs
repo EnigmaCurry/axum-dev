@@ -7,26 +7,16 @@ use rustls_pemfile::certs as load_pem_certs;
 use tokio::fs;
 use x509_parser::prelude::*;
 
-/// Validate cert:
-/// Check expected issuer and common names.
-pub fn validate_self_signed_cert_pem(
-    cert_pem: &[u8],
-    expected: &SelfSignedDn,
-) -> anyhow::Result<CertDetails> {
+pub fn inspect_self_signed_cert_pem(cert_pem: &[u8]) -> anyhow::Result<CertDetails> {
     let der = extract_single_cert_der(cert_pem)?;
     let (_rem, x509) =
         parse_x509_certificate(&der).map_err(|e| anyhow::anyhow!("x509 parse error: {e}"))?;
 
-    // enforce invariants
-    validate_subject_dn_exact(&x509, &expected.organization, &expected.common_name)?;
-    validate_issuer_matches_subject(&x509)?;
-    validate_validity_now(&x509)?;
-
-    // details
     let validity = x509.validity();
 
-    let not_before: OffsetDateTime = validity.not_before.to_datetime();
-    let not_after: OffsetDateTime = validity.not_after.to_datetime();
+    // In your x509-parser version, this returns OffsetDateTime directly.
+    let not_before = validity.not_before.to_datetime();
+    let not_after = validity.not_after.to_datetime();
 
     let now = OffsetDateTime::now_utc();
 
@@ -37,6 +27,22 @@ pub fn validate_self_signed_cert_pem(
         x509.subject().to_string(),
         x509.issuer().to_string(),
     ))
+}
+
+/// Validate cert:
+/// Check expiration and expected issuer and common names.
+pub fn validate_self_signed_cert_pem(
+    cert_pem: &[u8],
+    expected: &SelfSignedDn,
+) -> anyhow::Result<()> {
+    let der = extract_single_cert_der(cert_pem)?;
+    let (_rem, x509) =
+        parse_x509_certificate(&der).map_err(|e| anyhow::anyhow!("x509 parse error: {e}"))?;
+
+    validate_validity_now(&x509)?;
+    validate_subject_dn_exact(&x509, &expected.organization, &expected.common_name)?;
+    validate_issuer_matches_subject(&x509)?;
+    Ok(())
 }
 
 fn extract_single_cert_der(cert_pem: &[u8]) -> anyhow::Result<Vec<u8>> {
