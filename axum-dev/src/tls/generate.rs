@@ -1,11 +1,9 @@
-use rcgen::{CertificateParams, DistinguishedName, DnValue, KeyPair};
+use rcgen::{CertificateParams, DistinguishedName, KeyPair};
 use std::sync::Once;
 use time::OffsetDateTime;
-use tracing::warn;
 
 static INSTALL_RUSTLS_PROVIDER: Once = Once::new();
 
-/// Ensure the global rustls CryptoProvider is installed (ring).
 pub fn ensure_rustls_crypto_provider() {
     INSTALL_RUSTLS_PROVIDER.call_once(|| {
         rustls::crypto::ring::default_provider()
@@ -14,37 +12,55 @@ pub fn ensure_rustls_crypto_provider() {
     });
 }
 
-/// Generate a self-signed cert + key with a custom validity window.
+#[derive(Debug, Clone)]
+pub struct SelfSignedDn {
+    pub organization: String,
+    pub common_name: String,
+}
+
+impl SelfSignedDn {
+    pub fn from_bin_name(bin: &str) -> Self {
+        Self {
+            organization: format!("{bin} self-signed authority"),
+            common_name: bin.to_string(),
+        }
+    }
+}
+
+pub fn default_self_signed_dn() -> SelfSignedDn {
+    SelfSignedDn::from_bin_name(env!("CARGO_BIN_NAME"))
+}
+
+/// Backwards-compatible wrapper
 pub fn generate_self_signed_with_validity(
     sans: Vec<String>,
     valid_days: u32,
 ) -> Result<(Vec<u8>, Vec<u8>), rcgen::Error> {
-    // Start with rcgen defaults for the SANs
+    generate_self_signed_with_validity_and_dn(sans, valid_days, &default_self_signed_dn())
+}
+
+/// New API: caller provides the DN.
+pub fn generate_self_signed_with_validity_and_dn(
+    sans: Vec<String>,
+    valid_days: u32,
+    dn: &SelfSignedDn,
+) -> Result<(Vec<u8>, Vec<u8>), rcgen::Error> {
     let mut params = CertificateParams::new(sans)?;
 
-    // Fabricate a proprietary certificate issuer authority:
-    let mut dn = DistinguishedName::new();
-    dn.push(
-        rcgen::DnType::OrganizationName,
-        format!("{} self-signed authority", env!("CARGO_BIN_NAME")),
-    );
-    dn.push(rcgen::DnType::CommonName, env!("CARGO_BIN_NAME"));
-    params.distinguished_name = dn;
+    let mut distinguished_name = DistinguishedName::new();
+    distinguished_name.push(rcgen::DnType::OrganizationName, dn.organization.clone());
+    distinguished_name.push(rcgen::DnType::CommonName, dn.common_name.clone());
+    params.distinguished_name = distinguished_name;
 
-    // Custom validity
     let now = OffsetDateTime::now_utc();
     params.not_before = now;
     params.not_after = now + time::Duration::days(valid_days as i64);
 
-    // Generate a keypair with the default algorithm
     let key_pair = KeyPair::generate()?;
-
-    // Self-sign the certificate with that key
     let cert = params.self_signed(&key_pair)?;
 
-    // PEM-encode cert and key
-    let cert_pem = cert.pem().into_bytes();
-    let key_pem = key_pair.serialize_pem().into_bytes();
-
-    Ok((cert_pem, key_pem))
+    Ok((
+        cert.pem().into_bytes(),
+        key_pair.serialize_pem().into_bytes(),
+    ))
 }

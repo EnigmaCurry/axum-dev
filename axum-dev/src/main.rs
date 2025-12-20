@@ -21,6 +21,7 @@ mod response;
 mod routes;
 mod server;
 mod tls;
+mod util;
 
 use crate::config::{Cli, Commands};
 use prelude::*;
