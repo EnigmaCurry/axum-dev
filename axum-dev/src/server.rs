@@ -54,7 +54,7 @@ pub enum TlsConfig {
     SelfSigned {
         cache_dir: Option<PathBuf>,
         sans: Vec<String>,
-        valid_days: u32,
+        valid_secs: u32,
     },
     /// ACME (Let's Encrypt or other CA) via TLS-ALPN-01.
     ///
@@ -122,12 +122,12 @@ pub async fn run(
         TlsConfig::SelfSigned {
             cache_dir,
             mut sans,
-            valid_days,
+            valid_secs,
         } => {
             if sans.is_empty() {
                 sans.push("localhost".to_string());
             }
-            serve_self_signed(addr, app, deletion_abort, cache_dir, sans, valid_days).await?
+            serve_self_signed(addr, app, deletion_abort, cache_dir, sans, valid_secs).await?
         }
 
         TlsConfig::AcmeTlsAlpn01 {
@@ -457,9 +457,9 @@ async fn serve_self_signed(
     deletion_abort: tokio::task::AbortHandle,
     cache_dir: Option<std::path::PathBuf>,
     sans: Vec<String>,
-    valid_days: u32, // <-- was u64
+    valid_secs: u32,
 ) -> anyhow::Result<()> {
-    let (cert_pem, key_pem) = load_or_generate_self_signed(cache_dir, sans, valid_days).await?;
+    let (cert_pem, key_pem) = load_or_generate_self_signed(cache_dir, sans, valid_secs).await?;
     let rustls_config = axum_server::tls_rustls::RustlsConfig::from_pem(cert_pem, key_pem).await?;
 
     info!("listening on https://{addr} (self-signed)");
@@ -475,7 +475,7 @@ async fn serve_self_signed(
 async fn load_or_generate_self_signed(
     cache_dir: Option<std::path::PathBuf>,
     sans: Vec<String>,
-    valid_days: u32,
+    valid_secs: u32,
 ) -> anyhow::Result<(Vec<u8>, Vec<u8>)> {
     let expected_dn = default_self_signed_dn();
 
@@ -534,13 +534,13 @@ async fn load_or_generate_self_signed(
         }
 
         info!(
-            "Generating new cached self-signed TLS certificate (valid_days={}, sans={:?}) in '{}'",
-            valid_days,
+            "Generating new cached self-signed TLS certificate (valid_secs={}, sans={:?}) in '{}'",
+            valid_secs,
             sans,
             dir.display()
         );
 
-        let (cert_pem, key_pem) = generate_self_signed_with_validity(sans, valid_days)?;
+        let (cert_pem, key_pem) = generate_self_signed_with_validity(sans, valid_secs)?;
 
         // Write with secure perms atomically (no chmod race).
         atomic_write_file_0600(&cert_path, &cert_pem).await?;
@@ -550,11 +550,11 @@ async fn load_or_generate_self_signed(
     }
 
     info!(
-        "Generating ephemeral self-signed TLS certificate (valid_days={}, sans={:?}); not cached",
-        valid_days, sans
+        "Generating ephemeral self-signed TLS certificate (valid_secs={}, sans={:?}); not cached",
+        valid_secs, sans
     );
 
-    generate_self_signed_with_validity(sans, valid_days).map_err(Into::into)
+    generate_self_signed_with_validity(sans, valid_secs).map_err(Into::into)
 }
 
 async fn load_or_request_dns01_cert(

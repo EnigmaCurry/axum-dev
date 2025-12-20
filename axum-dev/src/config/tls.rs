@@ -122,14 +122,14 @@ pub struct TlsConfig {
     #[arg(long = "tls-acme-email", env = "TLS_ACME_EMAIL")]
     pub acme_email: Option<String>,
 
-    /// Validity in days for self-signed certificate.
+    /// Validity in seconds for self-signed certificate.
     /// Used when --tls-mode=self-signed.
     #[arg(
-        long = "tls-self-signed-valid-days",
-        env = "TLS_SELF_SIGNED_VALID_DAYS"
+        long = "tls-self-signed-valid-seconds",
+        env = "TLS_SELF_SIGNED_VALID_SECONDS"
     )]
-    #[conf(default(365))]
-    pub self_signed_valid_days: u32,
+    #[conf(default(31536000))]
+    pub self_signed_valid_seconds: u32,
     #[arg(long = "acme-dns-api-base", env = "ACME_DNS_API_BASE")]
     #[conf(default("https://auth.acme-dns.io".to_string()))]
     pub acme_dns_api_base: String,

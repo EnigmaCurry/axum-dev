@@ -114,17 +114,17 @@ fn build_tls_config(cfg: &AppConfig, root_dir: &Path) -> Result<server::TlsConfi
         TlsMode::SelfSigned => {
             let cache_dir = Some(root_dir.join("tls-cache"));
             let sans = cfg.tls.sans.0.clone();
-            let valid_days = cfg.tls.self_signed_valid_days;
+            let valid_secs = cfg.tls.self_signed_valid_seconds;
 
             info!(
-                "TLS mode: self-signed (HTTPS) – cache_dir={:?}, sans={:?}, valid_days={}",
-                cache_dir, sans, valid_days
+                "TLS mode: self-signed (HTTPS) – cache_dir={:?}, sans={:?}, valid_secs={}",
+                cache_dir, sans, valid_secs
             );
 
             Ok(server::TlsConfig::SelfSigned {
                 cache_dir,
                 sans,
-                valid_days,
+                valid_secs,
             })
         }
 

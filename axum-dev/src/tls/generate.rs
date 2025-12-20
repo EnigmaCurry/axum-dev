@@ -34,15 +34,15 @@ pub fn default_self_signed_dn() -> SelfSignedDn {
 /// Backwards-compatible wrapper
 pub fn generate_self_signed_with_validity(
     sans: Vec<String>,
-    valid_days: u32,
+    valid_secs: u32,
 ) -> Result<(Vec<u8>, Vec<u8>), rcgen::Error> {
-    generate_self_signed_with_validity_and_dn(sans, valid_days, &default_self_signed_dn())
+    generate_self_signed_with_validity_and_dn(sans, valid_secs, &default_self_signed_dn())
 }
 
 /// New API: caller provides the DN.
 pub fn generate_self_signed_with_validity_and_dn(
     sans: Vec<String>,
-    valid_days: u32,
+    valid_secs: u32,
     dn: &SelfSignedDn,
 ) -> Result<(Vec<u8>, Vec<u8>), rcgen::Error> {
     let mut params = CertificateParams::new(sans)?;
@@ -54,7 +54,7 @@ pub fn generate_self_signed_with_validity_and_dn(
 
     let now = OffsetDateTime::now_utc();
     params.not_before = now;
-    params.not_after = now + time::Duration::days(valid_days as i64);
+    params.not_after = now + time::Duration::seconds(valid_secs as i64);
 
     let key_pair = KeyPair::generate()?;
     let cert = params.self_signed(&key_pair)?;
