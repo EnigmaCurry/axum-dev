@@ -325,9 +325,6 @@ async fn serve_acme_tls_alpn01(
         .await
         .map_err(|e| anyhow::anyhow!("TLS cache dir invalid: {e:#}"))?;
 
-    // 🔐 Prevent races / snooping in this directory.
-    validate_private_dir_0700(&cache_dir).await?;
-
     info!(
         "Starting ACME TLS (tls-alpn-01) – directory_url='{}', cache_dir='{}', domains={:?}, contact_email={:?}",
         directory_url,
@@ -389,9 +386,6 @@ async fn serve_acme_dns01(
     create_private_dir_all_0700(&cache_dir)
         .await
         .map_err(|e| anyhow::anyhow!("TLS cache dir invalid: {e:#}"))?;
-
-    // 🔐 Prevent races / snooping in this directory.
-    validate_private_dir_0700(&cache_dir).await?;
 
     info!(
         "Starting ACME TLS (dns-01) – directory_url='{}', cache_dir='{}', domains={:?}, contact_email={:?}",
@@ -489,37 +483,46 @@ async fn load_or_generate_self_signed(
         create_private_dir_all_0700(&dir)
             .await
             .map_err(|e| anyhow::anyhow!("TLS cache dir invalid: {e:#}"))?;
-        validate_private_dir_0700(dir).await?;
 
         let cert_path = dir.join("self_signed_cert.pem");
         let key_path = dir.join("self_signed_key.pem");
 
-        let cert_exists = cert_path.exists();
-        let key_exists = key_path.exists();
+        let cert_exists = tokio::fs::try_exists(cert_path.clone()).await?;
+        let key_exists = tokio::fs::try_exists(key_path.clone()).await?;
 
         if cert_exists && key_exists {
             let cert_pem = read_tls_file(&cert_path).await?;
             let key_pem = read_private_tls_file(&key_path).await?;
 
-            let details = inspect_self_signed_cert_pem(&cert_pem)
-                .context("failed to inspect cached self-signed certificate")?;
-
-            match validate_self_signed_cert_pem(&cert_pem, &expected_dn) {
-                Ok(()) => {
-                    info!(
-                        "Loading cached self-signed TLS certificate from '{}' (expires {}, remaining {})",
-                        cert_path.display(),
-                        details.not_after,
-                        details.remaining_human,
-                    );
-                    return Ok((cert_pem, key_pem));
-                }
+            let details = match inspect_self_signed_cert_pem(&cert_pem) {
+                Ok(d) => Some(d),
                 Err(err) => {
                     info!(
-                        "Cached self-signed cert invalid (expires {}, remaining {}): {err}; deleting and regenerating",
-                        details.not_after, details.remaining_human,
+                        "Cached self-signed cert could not be inspected ({err}); deleting and regenerating"
                     );
                     delete_cached_pair(&cert_path, &key_path).await?;
+                    None
+                }
+            };
+
+            if let Some(details) = details {
+                match validate_self_signed_cert_pem(&cert_pem, &expected_dn) {
+                    Ok(()) => {
+                        info!(
+                            "Loading cached self-signed TLS certificate from '{}' (expires {}, remaining {})",
+                            cert_path.display(),
+                            details.not_after,
+                            details.remaining_human,
+                        );
+                        return Ok((cert_pem, key_pem));
+                    }
+                    Err(err) => {
+                        info!(
+                            "Cached self-signed cert invalid (expires {}, remaining {}): {err}; deleting and regenerating",
+                            details.not_after, details.remaining_human,
+                        );
+                        delete_cached_pair(&cert_path, &key_path).await?;
+                    }
                 }
             }
         } else if cert_exists || key_exists {
@@ -568,7 +571,7 @@ async fn load_or_request_dns01_cert(
     let key_exists = key_path.exists();
 
     if cert_exists && key_exists {
-        let cert_pem = read_private_tls_file(&cert_path).await?;
+        let cert_pem = read_tls_file(&cert_path).await?;
         let key_pem = read_private_tls_file(&key_path).await?;
 
         match pem_cert_is_valid_now(&cert_pem) {

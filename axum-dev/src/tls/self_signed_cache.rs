@@ -124,7 +124,7 @@ fn validate_subject_dn_exact(
 fn validate_issuer_matches_subject(x509: &X509Certificate<'_>) -> anyhow::Result<()> {
     // We want self-signed in the cache (issuer == subject).
     // Comparing stringified forms is good enough here because we also validated the exact subject.
-    if x509.issuer().to_string() != x509.subject().to_string() {
+    if x509.issuer() != x509.subject() {
         bail!("certificate issuer does not match subject (not self-signed)");
     }
     Ok(())
@@ -207,6 +207,13 @@ pub async fn read_private_tls_file(path: &Path) -> anyhow::Result<Vec<u8>> {
         if (mode & 0o077) != 0 {
             bail!(
                 "insecure permissions on '{}': mode {:o}; expected no group/other permissions (e.g. chmod 600)",
+                path.display(),
+                mode
+            );
+        }
+        if (mode & 0o100) != 0 {
+            bail!(
+                "TLS cache file '{}' should not be executable (mode {:o}); refusing",
                 path.display(),
                 mode
             );

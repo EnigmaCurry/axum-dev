@@ -43,14 +43,12 @@ impl CertDetails {
 pub fn format_remaining_compact(d: Duration) -> String {
     let mut secs = d.whole_seconds();
     let sign = if secs < 0 { "-" } else { "" };
-    secs = secs.abs();
+    let secs_u = secs.unsigned_abs(); // u64
 
-    let days = secs / 86_400;
-    secs %= 86_400;
-    let hours = secs / 3_600;
-    secs %= 3_600;
-    let mins = secs / 60;
-    let secs = secs % 60;
+    let days = secs_u / 86_400;
+    let hours = (secs_u % 86_400) / 3_600;
+    let mins = (secs_u % 3_600) / 60;
+    let secs = secs_u % 60;
 
     if days > 0 {
         format!("{sign}{days}d {hours}h {mins}m")

@@ -45,28 +45,32 @@ pub async fn validate_private_dir_0700(dir: &Path) -> anyhow::Result<()> {
 pub async fn create_private_dir_all_0700(dir: &Path) -> anyhow::Result<()> {
     #[cfg(unix)]
     {
-        use std::os::unix::fs::DirBuilderExt;
+        use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
 
-        // Keep a display string for error contexts without worrying about moves.
         let dir_display = dir.display().to_string();
         let dir_owned = dir.to_owned();
 
         tokio::task::spawn_blocking(move || {
             std::fs::DirBuilder::new()
                 .recursive(true)
-                .mode(0o700)
+                .mode(0o700) // requested (still subject to umask)
                 .create(&dir_owned)
         })
         .await
         .context("failed to join blocking task for create_private_dir_all_0700")?
-        .with_context(|| format!("failed to create TLS cache dir '{}'", dir_display))?;
+        .with_context(|| format!("failed to create directory '{}'", dir_display))?;
+
+        // Force final perms regardless of umask.
+        tokio::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700))
+            .await
+            .with_context(|| format!("failed to chmod 700 '{}'", dir.display()))?;
     }
 
     #[cfg(not(unix))]
     {
         tokio::fs::create_dir_all(dir)
             .await
-            .with_context(|| format!("failed to create TLS cache dir '{}'", dir.display()))?;
+            .with_context(|| format!("failed to create directory '{}'", dir.display()))?;
     }
 
     validate_private_dir_0700(dir).await?;
@@ -88,6 +92,10 @@ pub fn create_private_dir_all_0700_sync(dir: &Path) -> anyhow::Result<()> {
             .mode(0o700)
             .create(dir)
             .with_context(|| format!("failed to create TLS cache dir '{}'", dir.display()))?;
+
+        // Force final perms regardless of umask.
+        std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700))
+            .with_context(|| format!("failed to chmod 700 '{}'", dir.display()))?;
 
         let meta = std::fs::symlink_metadata(dir)
             .with_context(|| format!("failed to stat dir '{}'", dir.display()))?;
