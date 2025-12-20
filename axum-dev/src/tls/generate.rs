@@ -1,6 +1,7 @@
-use rcgen::{CertificateParams, KeyPair};
+use rcgen::{CertificateParams, DistinguishedName, DnValue, KeyPair};
 use std::sync::Once;
 use time::OffsetDateTime;
+use tracing::warn;
 
 static INSTALL_RUSTLS_PROVIDER: Once = Once::new();
 
@@ -20,6 +21,15 @@ pub fn generate_self_signed_with_validity(
 ) -> Result<(Vec<u8>, Vec<u8>), rcgen::Error> {
     // Start with rcgen defaults for the SANs
     let mut params = CertificateParams::new(sans)?;
+
+    // Fabricate a proprietary certificate issuer authority:
+    let mut dn = DistinguishedName::new();
+    dn.push(
+        rcgen::DnType::OrganizationName,
+        format!("{} self-signed authority", env!("CARGO_BIN_NAME")),
+    );
+    dn.push(rcgen::DnType::CommonName, env!("CARGO_BIN_NAME"));
+    params.distinguished_name = dn;
 
     // Custom validity
     let now = OffsetDateTime::now_utc();
