@@ -8,7 +8,8 @@ use crate::{
         dns::{AcmeDnsProvider, obtain_certificate_with_dns01},
         generate::{
             default_self_signed_dn, ensure_rustls_crypto_provider,
-            generate_self_signed_with_validity,
+            generate_self_signed_with_validity, load_or_generate_self_signed,
+            renew_self_signed_loop,
         },
         self_signed_cache::{
             delete_cached_pair, inspect_self_signed_cert_pem, read_private_tls_file, read_tls_file,
@@ -455,12 +456,35 @@ async fn serve_self_signed(
     addr: SocketAddr,
     app: axum::Router,
     deletion_abort: tokio::task::AbortHandle,
-    cache_dir: Option<std::path::PathBuf>,
+    cache_dir: Option<PathBuf>,
     sans: Vec<String>,
     valid_secs: u32,
 ) -> anyhow::Result<()> {
-    let (cert_pem, key_pem) = load_or_generate_self_signed(cache_dir, sans, valid_secs).await?;
-    let rustls_config = axum_server::tls_rustls::RustlsConfig::from_pem(cert_pem, key_pem).await?;
+    let (cert_pem, key_pem) =
+        load_or_generate_self_signed(cache_dir.clone(), sans.clone(), valid_secs).await?;
+
+    let rustls_config = RustlsConfig::from_pem(cert_pem.clone(), key_pem).await?;
+
+    // Renew at ~80% lifetime: margin = 20% validity, capped at 10 minutes.
+    // Also ensure margin is strictly less than validity.
+    let validity = Duration::from_secs(valid_secs as u64);
+    let mut renew_margin = Duration::from_secs((valid_secs as u64) / 5).max(Duration::from_secs(1));
+    renew_margin = renew_margin.min(Duration::from_secs(600));
+    if renew_margin >= validity {
+        // If validity is tiny, renew_margin must be < validity or we’ll loop.
+        renew_margin = validity
+            .saturating_sub(Duration::from_secs(1))
+            .max(Duration::from_secs(1));
+    }
+
+    tokio::spawn(renew_self_signed_loop(
+        rustls_config.clone(),
+        cache_dir,
+        sans,
+        valid_secs,
+        renew_margin,
+        cert_pem,
+    ));
 
     info!("listening on https://{addr} (self-signed)");
 
@@ -470,91 +494,6 @@ async fn serve_self_signed(
             .serve(app.into_make_service_with_connect_info::<SocketAddr>())
     })
     .await
-}
-
-async fn load_or_generate_self_signed(
-    cache_dir: Option<std::path::PathBuf>,
-    sans: Vec<String>,
-    valid_secs: u32,
-) -> anyhow::Result<(Vec<u8>, Vec<u8>)> {
-    let expected_dn = default_self_signed_dn();
-
-    if let Some(dir) = cache_dir.as_ref() {
-        create_private_dir_all_0700(&dir)
-            .await
-            .map_err(|e| anyhow::anyhow!("TLS cache dir invalid: {e:#}"))?;
-
-        let cert_path = dir.join("self_signed_cert.pem");
-        let key_path = dir.join("self_signed_key.pem");
-
-        let cert_exists = tokio::fs::try_exists(cert_path.clone()).await?;
-        let key_exists = tokio::fs::try_exists(key_path.clone()).await?;
-
-        if cert_exists && key_exists {
-            let cert_pem = read_tls_file(&cert_path).await?;
-            let key_pem = read_private_tls_file(&key_path).await?;
-
-            let details = match inspect_self_signed_cert_pem(&cert_pem) {
-                Ok(d) => Some(d),
-                Err(err) => {
-                    info!(
-                        "Cached self-signed cert could not be inspected ({err}); deleting and regenerating"
-                    );
-                    delete_cached_pair(&cert_path, &key_path).await?;
-                    None
-                }
-            };
-
-            if let Some(details) = details {
-                match validate_self_signed_cert_pem(&cert_pem, &expected_dn) {
-                    Ok(()) => {
-                        info!(
-                            "Loading cached self-signed TLS certificate from '{}' (expires {}, remaining {})",
-                            cert_path.display(),
-                            details.not_after,
-                            details.remaining_human,
-                        );
-                        return Ok((cert_pem, key_pem));
-                    }
-                    Err(err) => {
-                        info!(
-                            "Cached self-signed cert invalid (expires {}, remaining {}): {err}; deleting and regenerating",
-                            details.not_after, details.remaining_human,
-                        );
-                        delete_cached_pair(&cert_path, &key_path).await?;
-                    }
-                }
-            }
-        } else if cert_exists || key_exists {
-            info!(
-                "Cached self-signed cert/key incomplete; deleting and regenerating (cert_exists={}, key_exists={})",
-                cert_exists, key_exists
-            );
-            delete_cached_pair(&cert_path, &key_path).await?;
-        }
-
-        info!(
-            "Generating new cached self-signed TLS certificate (valid_secs={}, sans={:?}) in '{}'",
-            valid_secs,
-            sans,
-            dir.display()
-        );
-
-        let (cert_pem, key_pem) = generate_self_signed_with_validity(sans, valid_secs)?;
-
-        // Write with secure perms atomically (no chmod race).
-        atomic_write_file_0600(&cert_path, &cert_pem).await?;
-        atomic_write_file_0600(&key_path, &key_pem).await?;
-
-        return Ok((cert_pem, key_pem));
-    }
-
-    info!(
-        "Generating ephemeral self-signed TLS certificate (valid_secs={}, sans={:?}); not cached",
-        valid_secs, sans
-    );
-
-    generate_self_signed_with_validity(sans, valid_secs).map_err(Into::into)
 }
 
 async fn load_or_request_dns01_cert(
