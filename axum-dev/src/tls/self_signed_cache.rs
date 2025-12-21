@@ -1,9 +1,9 @@
+use super::{cert_details::CertDetails, generate::SelfSignedDn};
 use ::time::{Duration, OffsetDateTime};
 use anyhow::{Context, bail};
-use std::path::Path;
-
-use super::{cert_details::CertDetails, generate::SelfSignedDn};
+use rcgen::BasicConstraints;
 use rustls_pemfile::certs as load_pem_certs;
+use std::path::Path;
 use tokio::fs;
 use x509_parser::prelude::*;
 
@@ -261,4 +261,104 @@ async fn delete_one(path: &Path) -> anyhow::Result<()> {
             path.display()
         )),
     }
+}
+
+fn validate_name_dn_exact(
+    name: &X509Name<'_>,
+    expected_org: &str,
+    expected_cn: &str,
+) -> anyhow::Result<()> {
+    if name.iter_attributes().count() != 2 {
+        bail!("DN must contain exactly O and CN (no extra attributes)");
+    }
+
+    fn attr_to_string(attr: &AttributeTypeAndValue<'_>) -> anyhow::Result<String> {
+        Ok(attr
+            .as_str()
+            .context("certificate DN contains non-UTF8 or unsupported ASN.1 string")?
+            .to_string())
+    }
+
+    let mut org_it = name.iter_organization();
+    let org_attr = org_it.next().context("DN missing OrganizationName")?;
+    if org_it.next().is_some() {
+        bail!("DN contains multiple OrganizationName attributes");
+    }
+
+    let mut cn_it = name.iter_common_name();
+    let cn_attr = cn_it.next().context("DN missing CommonName")?;
+    if cn_it.next().is_some() {
+        bail!("DN contains multiple CommonName attributes");
+    }
+
+    let org = attr_to_string(org_attr)?;
+    let cn = attr_to_string(cn_attr)?;
+
+    if org != expected_org || cn != expected_cn {
+        bail!(
+            "DN mismatch (expected O='{}', CN='{}')",
+            expected_org,
+            expected_cn
+        );
+    }
+
+    Ok(())
+}
+
+fn validate_is_ca(x509: &X509Certificate<'_>) -> anyhow::Result<()> {
+    // basicConstraints must exist and indicate CA=true
+    let bc = x509
+        .basic_constraints()
+        .context("missing basicConstraints extension")?
+        .context("basicConstraints not present")?;
+
+    if !bc.value.ca {
+        bail!("certificate basicConstraints CA flag is false");
+    }
+    Ok(())
+}
+
+pub fn validate_local_ca_cert_pem(cert_pem: &[u8], expected: &SelfSignedDn) -> anyhow::Result<()> {
+    let der = extract_single_cert_der(cert_pem)?;
+    let (_rem, x509) =
+        parse_x509_certificate(&der).map_err(|e| anyhow::anyhow!("x509 parse error: {e}"))?;
+
+    validate_validity_now(&x509)?;
+    validate_name_dn_exact(
+        x509.subject(),
+        &expected.organization,
+        &expected.common_name,
+    )?;
+    validate_issuer_matches_subject(&x509)?;
+    validate_is_ca(&x509)?;
+    Ok(())
+}
+
+pub fn validate_leaf_signed_by_ca_cert_pem(
+    cert_pem: &[u8],
+    expected_leaf: &SelfSignedDn,
+    expected_issuer: &SelfSignedDn,
+) -> anyhow::Result<()> {
+    let der = extract_single_cert_der(cert_pem)?;
+    let (_rem, x509) =
+        parse_x509_certificate(&der).map_err(|e| anyhow::anyhow!("x509 parse error: {e}"))?;
+
+    validate_validity_now(&x509)?;
+    validate_name_dn_exact(
+        x509.subject(),
+        &expected_leaf.organization,
+        &expected_leaf.common_name,
+    )?;
+    validate_name_dn_exact(
+        x509.issuer(),
+        &expected_issuer.organization,
+        &expected_issuer.common_name,
+    )?;
+
+    // Leaf should not be self-signed.
+    if x509.issuer() == x509.subject() {
+        bail!("leaf certificate is unexpectedly self-signed");
+    }
+
+    Ok(())
 }

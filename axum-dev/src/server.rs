@@ -55,7 +55,8 @@ pub enum TlsConfig {
     SelfSigned {
         cache_dir: Option<PathBuf>,
         sans: Vec<String>,
-        valid_secs: u32,
+        leaf_valid_secs: u32,
+        ca_valid_secs: u32,
     },
     /// ACME (Let's Encrypt or other CA) via TLS-ALPN-01.
     ///
@@ -123,12 +124,22 @@ pub async fn run(
         TlsConfig::SelfSigned {
             cache_dir,
             mut sans,
-            valid_secs,
+            leaf_valid_secs,
+            ca_valid_secs,
         } => {
             if sans.is_empty() {
                 sans.push("localhost".to_string());
             }
-            serve_self_signed(addr, app, deletion_abort, cache_dir, sans, valid_secs).await?
+            serve_self_signed(
+                addr,
+                app,
+                deletion_abort,
+                cache_dir,
+                sans,
+                leaf_valid_secs,
+                ca_valid_secs,
+            )
+            .await?
         }
 
         TlsConfig::AcmeTlsAlpn01 {
@@ -458,17 +469,28 @@ async fn serve_self_signed(
     deletion_abort: tokio::task::AbortHandle,
     cache_dir: Option<PathBuf>,
     sans: Vec<String>,
-    valid_secs: u32,
+    leaf_valid_secs: u32,
+    ca_valid_secs: u32,
 ) -> anyhow::Result<()> {
-    let (cert_pem, key_pem) =
-        load_or_generate_self_signed(cache_dir.clone(), sans.clone(), valid_secs).await?;
+    let tls_material = load_or_generate_self_signed(
+        cache_dir.clone(),
+        sans.clone(),
+        leaf_valid_secs,
+        ca_valid_secs,
+    )
+    .await?;
 
-    let rustls_config = RustlsConfig::from_pem(cert_pem.clone(), key_pem).await?;
+    let rustls_config = RustlsConfig::from_pem(
+        tls_material.chain_pem.clone(),
+        tls_material.leaf_key_pem.clone(),
+    )
+    .await?;
 
     // Renew at ~80% lifetime: margin = 20% validity, capped at 10 minutes.
     // Also ensure margin is strictly less than validity.
-    let validity = Duration::from_secs(valid_secs as u64);
-    let mut renew_margin = Duration::from_secs((valid_secs as u64) / 5).max(Duration::from_secs(1));
+    let validity = Duration::from_secs(leaf_valid_secs as u64);
+    let mut renew_margin =
+        Duration::from_secs((leaf_valid_secs as u64) / 5).max(Duration::from_secs(1));
     renew_margin = renew_margin.min(Duration::from_secs(600));
     if renew_margin >= validity {
         // If validity is tiny, renew_margin must be < validity or we’ll loop.
@@ -481,9 +503,9 @@ async fn serve_self_signed(
         rustls_config.clone(),
         cache_dir,
         sans,
-        valid_secs,
+        leaf_valid_secs,
         renew_margin,
-        cert_pem,
+        tls_material.leaf_cert_pem,
     ));
 
     info!("listening on https://{addr} (self-signed)");

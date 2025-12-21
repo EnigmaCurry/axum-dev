@@ -15,6 +15,8 @@ use anyhow::Context;
 use axum::http::HeaderName;
 use tracing::{debug, error, info};
 
+static TLS_CACHE_DIR: &'static str = "tls-cache";
+
 pub struct ServePlan {
     pub addr: SocketAddr,
     pub tls_config: server::TlsConfig,
@@ -112,24 +114,34 @@ fn build_tls_config(cfg: &AppConfig, root_dir: &Path) -> Result<server::TlsConfi
         }
 
         TlsMode::SelfSigned => {
-            let cache_dir = Some(root_dir.join("tls-cache"));
+            let cache_dir = if cfg.tls.self_signed_ephemeral {
+                None
+            } else {
+                Some(root_dir.join(TLS_CACHE_DIR))
+            };
             let sans = cfg.tls.sans.0.clone();
-            let valid_secs = cfg.tls.self_signed_valid_seconds;
+            let leaf_valid_secs = cfg.tls.effective_self_signed_valid_seconds();
+            let ca_valid_secs = cfg.tls.effective_ca_cert_valid_seconds();
 
             info!(
-                "TLS mode: self-signed (HTTPS) – cache_dir={:?}, sans={:?}, valid_secs={}",
-                cache_dir, sans, valid_secs
+                "TLS mode: self-signed (HTTPS) – cache_dir={:?}, sans={:?}",
+                cache_dir, sans
+            );
+            debug!(
+                "TLS leaf_valid_secs={}, ca_valid_secs={}",
+                leaf_valid_secs, ca_valid_secs
             );
 
             Ok(server::TlsConfig::SelfSigned {
                 cache_dir,
                 sans,
-                valid_secs,
+                leaf_valid_secs,
+                ca_valid_secs,
             })
         }
 
         TlsMode::Acme => {
-            let cache_dir: PathBuf = root_dir.join("tls-cache");
+            let cache_dir: PathBuf = root_dir.join(TLS_CACHE_DIR);
             create_private_dir_all_0700_sync(&cache_dir).context((|| {
                 format!("TLS cache dir invalid: {}", cache_dir.display())
             })())?;
