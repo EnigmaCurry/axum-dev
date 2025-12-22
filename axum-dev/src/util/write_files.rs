@@ -91,7 +91,7 @@ pub fn create_private_dir_all_0700_sync(dir: &Path) -> anyhow::Result<()> {
             .recursive(true)
             .mode(0o700)
             .create(dir)
-            .with_context(|| format!("failed to create TLS cache dir '{}'", dir.display()))?;
+            .with_context(|| format!("failed to create directory '{}'", dir.display()))?;
 
         // Force final perms regardless of umask.
         std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700))
@@ -101,19 +101,16 @@ pub fn create_private_dir_all_0700_sync(dir: &Path) -> anyhow::Result<()> {
             .with_context(|| format!("failed to stat dir '{}'", dir.display()))?;
 
         if meta.file_type().is_symlink() {
-            bail!(
-                "refusing to use symlink as TLS cache dir '{}'",
-                dir.display()
-            );
+            bail!("refusing to load data from a symlink '{}'", dir.display());
         }
         if !meta.file_type().is_dir() {
-            bail!("TLS cache dir '{}' is not a directory", dir.display());
+            bail!("path '{}' is not a directory", dir.display());
         }
 
         let mode = meta.permissions().mode() & 0o777;
         if mode != 0o700 {
             bail!(
-                "insecure permissions on TLS cache dir '{}': mode {:o}; expected 700 (chmod 700 '{}')",
+                "insecure permissions on directory '{}': mode {:o}; expected 700 (chmod 700 '{}')",
                 dir.display(),
                 mode,
                 dir.display()
@@ -126,7 +123,7 @@ pub fn create_private_dir_all_0700_sync(dir: &Path) -> anyhow::Result<()> {
     #[cfg(not(unix))]
     {
         std::fs::create_dir_all(dir)
-            .with_context(|| format!("failed to create TLS cache dir '{}'", dir.display()))?;
+            .with_context(|| format!("failed to create directory '{}'", dir.display()))?;
         Ok(())
     }
 }

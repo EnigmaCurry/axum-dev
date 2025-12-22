@@ -108,11 +108,11 @@ pub struct TlsConfig {
     pub mode: TlsMode,
 
     /// Path to TLS certificate (PEM) when --tls-mode=manual.
-    #[arg(long = "tls-cert-path", env = "TLS_CERT_PATH")]
+    #[arg(long = "tls-cert", env = "TLS_CERT")]
     pub cert_path: Option<PathBuf>,
 
     /// Path to TLS private key (PEM) when --tls-mode=manual.
-    #[arg(long = "tls-key-path", env = "TLS_KEY_PATH")]
+    #[arg(long = "tls-key", env = "TLS_KEY")]
     pub key_path: Option<PathBuf>,
 
     /// Additional DNS SubjectAltNames (SANs) for the TLS certificate.
@@ -165,7 +165,7 @@ impl TlsConfig {
         if self.mode == TlsMode::Manual {
             if self.cert_path.is_none() || self.key_path.is_none() {
                 return Err(CliError::InvalidArgs(
-                    "Both --tls-cert-path and --tls-key-path are required when --tls-mode=manual."
+                    "Both --tls-cert and --tls-key are required when --tls-mode=manual."
                         .to_string(),
                 ));
             }
@@ -173,8 +173,7 @@ impl TlsConfig {
             // Best practice: reject manual-only args outside manual mode
             if self.cert_path.is_some() || self.key_path.is_some() {
                 return Err(CliError::InvalidArgs(
-                    "--tls-cert-path/--tls-key-path are only valid when --tls-mode=manual."
-                        .to_string(),
+                    "--tls-cert/--tls-key are only valid when --tls-mode=manual.".to_string(),
                 ));
             }
         }

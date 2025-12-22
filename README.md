@@ -159,6 +159,10 @@ axum-dev serve -v \
 Note: self-signed certificates are not trusted in normal web browsers.
 Use Manual TLS or ACME for production.
 
+The above command will cache the self-signed CA and certificate files
+in your data directory. If you would rather create an ephemeral
+certificate, add the `--tls-self-signed-ephemeral` flag.
+
 ### Manual TLS
 
 ```
@@ -169,8 +173,8 @@ axum-dev serve -v \
   --auth-method        username_password \
   --session-secure     true \
   --tls-mode           manual \
-  --tls-cert-path      cert.pem \
-  --tls-key-path       key.pem
+  --tls-cert           /path/to/some/cert.pem \
+  --tls-key            /path/to/some/key.pem
 ```
 
 ### ACME (TLS-ALPN-01)

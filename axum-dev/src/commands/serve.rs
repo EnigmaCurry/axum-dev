@@ -95,10 +95,10 @@ fn build_tls_config(cfg: &AppConfig, root_dir: &Path) -> Result<server::TlsConfi
 
         TlsMode::Manual => {
             let cert_path = cfg.tls.cert_path.clone().ok_or_else(|| {
-                CliError::InvalidArgs("Missing --tls-cert-path for --tls-mode=manual".to_string())
+                CliError::InvalidArgs("Missing --tls-cert for --tls-mode=manual".to_string())
             })?;
             let key_path = cfg.tls.key_path.clone().ok_or_else(|| {
-                CliError::InvalidArgs("Missing --tls-key-path for --tls-mode=manual".to_string())
+                CliError::InvalidArgs("Missing --tls-key for --tls-mode=manual".to_string())
             })?;
 
             info!(

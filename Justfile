@@ -345,3 +345,8 @@ template-diff *args:
     @set -euo pipefail; \
     source ${FUNCS_SCRIPT}; \
     template_diff
+
+create-test-certs:
+    @set -euo pipefail; \
+    ./_scripts/create-test-certs.sh
+    
