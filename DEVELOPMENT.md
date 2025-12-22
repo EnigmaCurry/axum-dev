@@ -1,9 +1,9 @@
 # Development
 
+## Install host dependencies
+
 These instructions are specific to Fedora; minor adjustments for your
 platform may be required.
-
-## Install host dependencies
 
 ```
 sudo dnf install git openssh rustup
@@ -56,6 +56,39 @@ source <(axum-dev completions bash 2> /dev/null)
 Now you can run `axum-dev` from any directory, with
 any arguments, and it will automatically rebuild from source, and then
 run it with those args. This will have full tab-completion in your shell.
+
+## Configure the .env file
+
+In development only, when using the `just` command, you will use the
+`.env` file. You need to generate it from the included `.env-dist`:
+
+```
+just config
+```
+
+This will copy the provided [.env-dist](template/.env-dist) to `.env`.
+You should edit the generated `.env` file by hand to configure your
+application.
+
+You can set an alternative `.env` file path by setting the `ENV_FILE`
+environment variable.
+
+It is important to know that the program itself does not know how to
+read `.env` files. It is `just` that is loading the .env file and
+setting regular environment variables, which the program can read.
+`just` and `.env` files are only used during development.
+
+## Run the program
+
+```
+# Compile and run on the fly with `just`:
+
+just run [ARGS ...]
+
+# OR, from the compiled binary:
+
+axum-dev [ARGS ..]
+```
 
 ## Testing
 

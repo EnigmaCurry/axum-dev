@@ -222,34 +222,7 @@ for your certificate.
 
 ## Development
 
-For development, you are advised to install
-[just](https://github.com/casey/just) and use the targets defined in
-the [Justfile](Justfile).
-
-## Configure the .env file
-
-```
-just config
-```
-
-This will copy the provided [.env-dist](template/.env-dist) to `.env`.
-You should edit the generated `.env` file by hand to configure your
-application.
-
-You can set an alternative `.env` file path by setting the `ENV_FILE`
-environment variable.
-
-## Run the program
-
-```
-just run [ARGS ...]
-```
-
-You can also run the binary directly by building manually (`just
-build`) and running the static binary
-`{{app_name}}/target/debug/{{app_name}}`.
-
-Also see [DEVELOPMENT.md](DEVELOPMENT.md)
+See [DEVELOPMENT.md](DEVELOPMENT.md)
 
 ## Shell completion
 
