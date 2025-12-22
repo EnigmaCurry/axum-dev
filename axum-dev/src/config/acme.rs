@@ -14,8 +14,9 @@ pub struct AcmeDnsRegisterConfig {
     /// Optional CIDR ranges allowed to call the acme-dns /update API.
     ///
     /// This is passed through to the acme-dns `allowfrom` field.
-    #[arg(long = "acme-dns-allowfrom", env = "ACME_DNS_ALLOWFROM")]
-    pub allowfrom: StringList,
+    #[arg(long = "acme-dns-allow-from", env = "ACME_DNS_ALLOW_FROM")]
+    #[conf(default(StringList(["0.0.0.0/0".to_string()].to_vec())))]
+    pub allow_from: StringList,
 
     /// Primary public hostname.
     #[arg(long = "net-host", env = "NET_HOST")]
@@ -26,5 +27,6 @@ pub struct AcmeDnsRegisterConfig {
     /// APP_HOST is used as the primary Common Name (CN); these names are added
     /// as SubjectAltNames. Used for ACME and self-signed modes.
     #[arg(long = "tls-san", env = "TLS_SANS")]
+    #[conf(default(StringList([].to_vec())))]
     pub sans: StringList,
 }

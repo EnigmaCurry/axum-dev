@@ -12,6 +12,7 @@ use instant_acme::{
     NewAccount, NewOrder, OrderStatus, RetryPolicy,
 };
 use serde_json;
+use tracing::warn;
 
 use crate::util::write_files::create_private_dir_all_0700;
 
@@ -376,7 +377,6 @@ async fn create_or_load_account(
 
     // instant-acme expects `&[&str]` here.
     let contact_refs: Vec<&str> = contact_strings.iter().map(|s| s.as_str()).collect();
-
     let new_account = NewAccount {
         contact: &contact_refs,
         terms_of_service_agreed: true,

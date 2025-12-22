@@ -116,7 +116,11 @@ pub struct TlsConfig {
     pub key_path: Option<PathBuf>,
 
     /// Additional DNS SubjectAltNames (SANs) for the TLS certificate.
-    #[arg(long = "tls-san", env = "TLS_SANS", default(StringList::from_str("").expect("")))]
+    ///
+    /// APP_HOST is used as the primary Common Name (CN); these names are added
+    /// as SubjectAltNames. Used for ACME and self-signed modes.
+    #[arg(long = "tls-san", env = "TLS_SANS")]
+    #[conf(default(StringList([].to_vec())))]
     pub sans: StringList,
 
     /// ACME challenge type to use when --tls-mode=acme.

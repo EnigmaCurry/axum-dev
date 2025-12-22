@@ -141,7 +141,6 @@ axum-dev serve -v \
   --net-listen-ip      0.0.0.0 \
   --net-listen-port    8000 \
   --auth-method        username_password \
-  --session-secure     false
 ```
 
 ### Automatic self-signed TLS
@@ -152,7 +151,6 @@ axum-dev serve -v \
   --net-listen-ip          0.0.0.0 \
   --net-listen-port        8443 \
   --auth-method            username_password \
-  --session-secure         true \
   --tls-mode               self-signed
 ```
 
@@ -171,7 +169,6 @@ axum-dev serve -v \
   --net-listen-ip      0.0.0.0 \
   --net-listen-port    8000 \
   --auth-method        username_password \
-  --session-secure     true \
   --tls-mode           manual \
   --tls-cert           /path/to/some/cert.pem \
   --tls-key            /path/to/some/key.pem
@@ -185,7 +182,6 @@ axum-dev serve -v \
   --net-listen-ip          0.0.0.0 \
   --net-listen-port        443 \
   --auth-method            username_password \
-  --session-secure         true \
   --tls-mode               acme \
   --tls-acme-challenge     tls-alpn-01 \
   --tls-acme-directory-url https://acme-v02.api.letsencrypt.org/directory \
@@ -200,8 +196,13 @@ Note: TLS-ALPN-01 only work on port 443. So you need to run as `root`.
 ## Register your ACME-DNS account. 
 ## Specify all of your domains (SANS) to get help with the CNAME records:
 axum-dev acme-dns-register \
+  --acme-dns-api-base      https://auth.acme-dns.io \
   --net-host  axum-dev.example.org \
   --tls-san ""
+
+## Follow the directions in the output of acme-dns-register.
+## Create the CNAME records it suggests for your domain.
+## Run the `dig` command it suggests to verify the records.
 
 ## Loads ACME-DNS credentials and provisions cert on first run:
 axum-dev serve -v \
@@ -209,14 +210,15 @@ axum-dev serve -v \
   --net-listen-ip          0.0.0.0 \
   --net-listen-port        8443 \
   --auth-method            username_password \
-  --session-secure         true \
   --tls-mode               acme \
-  --tls-san                "" \
   --tls-acme-challenge     dns-01 \
   --tls-acme-directory-url https://acme-v02.api.letsencrypt.org/directory \
-  --tls-acme-email         "" \
   --acme-dns-api-base      https://auth.acme-dns.io
 ```
+
+See optional fields: `--tls-acme-email` if you want to set your ACME
+account email address, `--tls-san` if you want additional SAN records
+for your certificate.
 
 ## Development
 

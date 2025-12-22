@@ -40,10 +40,10 @@ pub fn acme_dns_register<W1: Write, W2: Write>(
     domains.retain(|d| seen.insert(d.clone()));
 
     // Build allow_from
-    let allowfrom_opt = if args.allowfrom.is_empty() {
+    let allow_from_opt = if args.allow_from.is_empty() {
         None
     } else {
-        Some(args.allowfrom.clone())
+        Some(args.allow_from.clone())
     };
 
     let rt = tokio::runtime::Runtime::new()
@@ -54,7 +54,7 @@ pub fn acme_dns_register<W1: Write, W2: Write>(
             &args.api_base,
             &cache_dir,
             &domains,
-            allowfrom_opt.as_deref(),
+            allow_from_opt.as_deref(),
         ))
         .map_err(|e| CliError::RuntimeError(e.to_string()))?;
 

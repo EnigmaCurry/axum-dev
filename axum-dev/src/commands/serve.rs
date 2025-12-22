@@ -220,7 +220,7 @@ fn build_acme_domains(cfg: &AppConfig) -> Result<Vec<String>, CliError> {
     if domains.is_empty() {
         return Err(CliError::InvalidArgs(
             "ACME mode requires at least one domain. \
-Provide --tls-san and/or --app-host (or APP_HOST)."
+Provide --tls-san and/or --net-host (or NET_HOST)."
                 .to_string(),
         ));
     }
