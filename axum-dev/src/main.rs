@@ -87,6 +87,52 @@ where
             write_completion::<Cli, _>(args.shell, None, out)?;
             Ok(())
         }
+
+        Commands::Config(ref _first_pass_cfg) => {
+            let root_dir = ensure_root_dir(cli.root_dir.clone().0)?;
+            trace!("Root directory (app data): {}", cli.root_dir);
+
+            let cfg_path = resolve_config_path(&cli, &root_dir);
+            ensure_config_file_exists(&cfg_path)?;
+
+            // Build args for ServeConfig parse: everything after the "config" token.
+            let config_args = args_after_subcommand(&args_vec, "config")
+                .ok_or_else(|| CliError::InvalidArgs("Missing 'config' subcommand".to_string()))?;
+
+            let doc = load_toml_doc(&cfg_path)?;
+            let serve_cfg = match ServeConfig::conf_builder()
+                .args(config_args)
+                .env(std::env::vars_os())
+                .doc(cfg_path.to_string_lossy(), doc)
+                .try_parse()
+            {
+                Ok(cfg) => cfg,
+                Err(e) => return handle_conf_err(e, out, _err),
+            };
+
+            // Optional: keep parity with `serve` by validating what would be used at runtime.
+            let app_cfg: AppConfig = serve_cfg.app;
+            app_cfg.tls.validate_with_root(&root_dir)?;
+            app_cfg.auth.validate()?;
+
+            // Print the effective config as TOML
+            let rendered = toml::to_string_pretty(&app_cfg).map_err(|e| {
+                CliError::InvalidArgs(format!("Failed to serialize config as TOML: {e}"))
+            })?;
+
+            let bin = env!("CARGO_BIN_NAME");
+            out.write(&format!("## Example {bin} config ::\n").into_bytes())?;
+            out.write(
+                &format!("## (Write this to ~/.local/share/{bin}/defaults.toml)\n").into_bytes(),
+            )?;
+            out.write(b"## CLI options and env vars will always supercede this file.\n\n")?;
+
+            out.write_all(rendered.as_bytes())?;
+            if !rendered.ends_with('\n') {
+                out.write_all(b"\n")?;
+            }
+            Ok(())
+        }
         Commands::Serve(ref _first_pass_cfg) => {
             let root_dir = ensure_root_dir(cli.root_dir.clone().0)?;
             info!("Root directory (app data): {}", cli.root_dir);

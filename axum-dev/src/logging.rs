@@ -7,6 +7,7 @@ pub fn init_tracing(log_level: &str) {
 
     tracing_subscriber::fmt()
         .with_env_filter(filter)
+        .with_writer(std::io::stderr)
         .pretty()
         .try_init()
         .ok();
