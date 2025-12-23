@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    config::{AppConfig, TlsAcmeChallenge, TlsMode},
+    config::{AppConfig, TlsAcmeChallenge, TlsMode, database::build_db_url},
     ensure_root_dir,
     errors::CliError,
     middleware::{self, auth::AuthenticationMethod},
@@ -31,7 +31,7 @@ pub struct ServePlan {
 fn plan_serve(cfg: &AppConfig, root_dir: &Path) -> Result<ServePlan, CliError> {
     let addr = parse_listen_addr(cfg)?;
     let tls_config = build_tls_config(cfg, root_dir)?;
-    let db_url = build_db_url(cfg, root_dir);
+    let db_url = build_db_url(cfg.database.url.clone(), root_dir);
     let (auth_cfg, fwd_cfg) = build_auth_cfgs(cfg)?;
 
     Ok(ServePlan {
@@ -226,16 +226,6 @@ Provide --tls-san and/or --net-host (or NET_HOST)."
     }
 
     Ok(domains)
-}
-
-fn build_db_url(cfg: &AppConfig, root_dir: &Path) -> String {
-    match cfg.database.url.as_ref() {
-        None => {
-            let db_path = root_dir.join("data.db");
-            format!("sqlite://{}", db_path.display())
-        }
-        Some(url) => url.clone(),
-    }
 }
 
 fn build_auth_cfgs(

@@ -214,6 +214,7 @@ async fn init_db(db_url: &str) -> anyhow::Result<SqlitePool> {
     let db: SqlitePool = SqlitePool::connect_with(connect_opts).await?;
     debug!("Loaded database connection pool. DATABASE_URL={db_url}");
     sqlx::migrate!().run(&db.clone()).await?;
+    debug!("sqlx migration complete");
     Ok(db)
 }
 

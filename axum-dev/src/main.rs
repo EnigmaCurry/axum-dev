@@ -165,6 +165,7 @@ where
         Commands::AcmeDnsRegister(args) => {
             commands::acme_dns_register(args, cli.root_dir.clone().0, out, _err)
         }
+        Commands::Sql(args) => commands::sql(args, cli.root_dir.clone().0, out, _err),
     }
 }
 

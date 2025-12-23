@@ -66,6 +66,7 @@ impl Cli {
             Commands::AcmeDnsRegister { .. } => Ok(()),
             Commands::Completions(_) => Ok(()),
             Commands::Config(_) => Ok(()),
+            Commands::Sql(_) => Ok(()),
         }
     }
 }
@@ -95,6 +96,9 @@ pub enum Commands {
     /// Run this once before `serve` when using `--tls-mode=acme --tls-acme-challenge=dns-01`,
     /// unless you are providing ACME_DNS_* credentials explicitly.
     AcmeDnsRegister(AcmeDnsRegisterConfig),
+
+    /// Run SQLite shell with the application's database loaded
+    Sql(ServeConfig),
 }
 
 pub(crate) fn write_conf_error<W1: Write, W2: Write>(e: &conf::Error, out: &mut W1, err: &mut W2) {
