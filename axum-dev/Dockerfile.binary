@@ -1,5 +1,5 @@
-ARG APP_BIN="${APP}"
-ARG REPOSITORY="${GIT_USERNAME}"
+ARG APP_BIN="axum-dev"
+ARG REPOSITORY="enigmacurry"
 
 # ---- Runtime only --------------------------------------------
 FROM debian:trixie-slim AS runtime

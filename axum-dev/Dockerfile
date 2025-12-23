@@ -1,11 +1,11 @@
 # Choose "release" or "debug" at build time:
-#   docker build -f ${APP}/Dockerfile --build-arg CARGO_PROFILE=debug   -t ${APP}:debug   .
-#   docker build -f ${APP}/Dockerfile --build-arg CARGO_PROFILE=release -t ${APP}:release .
+#   docker build -f axum-dev/Dockerfile --build-arg CARGO_PROFILE=debug   -t axum-dev:debug   .
+#   docker build -f axum-dev/Dockerfile --build-arg CARGO_PROFILE=release -t axum-dev:release .
 ARG CARGO_PROFILE=release
 
 # App naming (crate dir / package name / binary name)
-ARG APP_CRATE=${APP}
-ARG APP_BIN=${APP}
+ARG APP_CRATE=axum-dev
+ARG APP_BIN=axum-dev
 
 # ---- Frontend builder (SvelteKit) ---------------------------------
 FROM node:22-slim AS frontend-builder
@@ -96,7 +96,7 @@ ARG APP_BIN
 ARG CARGO_PROFILE
 ENV APP_BIN=${APP_BIN}
 
-LABEL org.opencontainers.image.source="https://github.com/${GIT_USERNAME}/${APP_BIN}"
+LABEL org.opencontainers.image.source="https://github.com/enigmacurry/${APP_BIN}"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates coreutils sqlite3 && \
