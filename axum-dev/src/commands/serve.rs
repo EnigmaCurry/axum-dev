@@ -260,7 +260,7 @@ fn build_auth_cfgs(
             );
         }
         AuthenticationMethod::UsernamePassword => {
-            info!("Authentication method: UsernamePassword");
+            info!("Authentication method: username_password");
         }
     }
 
