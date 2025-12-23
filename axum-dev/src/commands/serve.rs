@@ -307,6 +307,7 @@ fn plan_serve_builds_expected_db_url_and_addr() {
         },
         database: crate::config::DatabaseConfig {
             url: None, /* .. */
+            sqlite_path: "sqlite3".to_string(),
         },
         session: crate::config::SessionConfig {
             expiry_seconds: 3600,

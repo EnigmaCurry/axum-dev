@@ -243,6 +243,21 @@ template_diff() {
   fi
 }
 
+check_git_clean() {
+    local d=$(realpath ${1:-.}) # Default current directory
+    [ -d "$d" ] || { fault "Not a directory: $d"; return 2; }
+    (
+        cd "$d" || { fault "Cannot cd into $d"; exit 1; }
+        git rev-parse --git-dir >/dev/null 2>&1 ||
+            { fault "Not a git repository: $d"; exit 1; }
+        [[ -z "$(git status --porcelain)" ]] ||
+            { fault "Working tree is dirty: $d"; exit 1; }
+        printf '✔ Repository is clean: %s\n' "$d"
+        exit 0
+    )
+    return $?
+}
+
 fresh_template_branch() {
     set -euo pipefail
     export TMP_REMOTE="tmp-import-remote"
@@ -261,9 +276,7 @@ fresh_template_branch() {
     # -----------------------------------------------------------------
     # Sanity checks
     # -----------------------------------------------------------------
-    check_deps git
-    git rev-parse --git-dir >/dev/null 2>&1 || fault "Not a git repository."
-    [[ -z "$(git status --porcelain)" ]] || fault "Working tree is dirty."
+    check_git_clean
 
     # -----------------------------------------------------------------
     # Get a name for the new orphan branch
@@ -333,3 +346,4 @@ fresh_template_branch() {
     stderr
     stderr "✅ Fresh template branch '${NEW_ORPHAN_BRANCH}' created – single commit \"${COMMIT_MSG}\"."
 }
+

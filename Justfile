@@ -353,4 +353,8 @@ create-test-certs:
 new-template-branch:
     @set -euo pipefail; \
     source ${FUNCS_SCRIPT}; \
-    fresh_template_branch
+    REMOTE=../rust-axum-template fresh_template_branch
+
+merge-template-upstream:
+    @set -euo pipefail; \
+    ./_scripts/merge_template_upstream.sh
