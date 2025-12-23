@@ -29,7 +29,7 @@ INSERT INTO signup_method (code, description) VALUES
 -- users
 
 CREATE TABLE [user] (
-    id                   TEXT PRIMARY KEY,
+    id                   INTEGER PRIMARY KEY,
     identity_provider_id INTEGER NOT NULL REFERENCES identity_provider(id),
     external_id          TEXT NOT NULL,   -- value from ForwardAuth (e.g. subject or email)
 
@@ -61,7 +61,7 @@ CREATE TABLE [user] (
 -- passwords
 
 CREATE TABLE user_password (
-    user_id       TEXT NOT NULL
+    user_id       INTEGER NOT NULL
                   PRIMARY KEY
                   REFERENCES [user](id)
                   ON DELETE CASCADE,
@@ -98,7 +98,7 @@ INSERT INTO [role] (name, description) VALUES
 -- IMPORTANT: user_id and assigned_by must match the type of user.id
 
 CREATE TABLE user_role (
-    user_id         TEXT NOT NULL REFERENCES [user](id) ON DELETE CASCADE,
+    user_id         INTEGER NOT NULL REFERENCES [user](id) ON DELETE CASCADE,
     role_id         INTEGER NOT NULL REFERENCES [role](id),
     assigned_at     DATETIME NOT NULL DEFAULT (CURRENT_TIMESTAMP),
     assigned_by     TEXT REFERENCES [user](id), -- which admin gave them this role

@@ -1,13 +1,19 @@
 use serde::{Deserialize, Serialize};
 use sqlx::Type;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Type, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Type, Serialize, Deserialize)]
 #[sqlx(transparent)]
-pub struct UserId(pub String);
+pub struct UserId(pub i64);
+
+impl From<i64> for UserId {
+    fn from(v: i64) -> Self {
+        Self(v)
+    }
+}
 
 impl UserId {
-    pub fn new() -> Self {
-        Self(uuid::Uuid::new_v4().to_string())
+    pub const fn new(v: i64) -> Self {
+        Self(v)
     }
 }
 

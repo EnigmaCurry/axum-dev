@@ -1,15 +1,15 @@
 use aide::{axum::ApiRouter, openapi::OpenApi};
-use axum::{Extension, Router, http::StatusCode, middleware, routing::get};
+use axum::{http::StatusCode, middleware, routing::get, Extension, Router};
 use std::sync::Arc;
 use tower_http::{services::ServeDir, trace::TraceLayer};
 
 use crate::{
-    AppState,
     api_docs::{configure_openapi, docs_routes},
     middleware::{
         admin_only::admin_only_middleware, csrf_protection, trusted_forwarded_for,
         trusted_header_auth, user_session::user_session_middleware,
     },
+    AppState,
 };
 
 pub mod admin;
@@ -56,15 +56,15 @@ pub fn router(
         // Add non-API routes:
         .nest_service("/static", ServeDir::new("static"))
         .route("/favicon.ico", get(favicon))
-        // Add frontend fallback:
-        .route("/", get(crate::frontend::spa_handler))
-        .route("/{*path}", get(crate::frontend::spa_handler))
         // Add global middleware:
         .layer(middleware::from_fn(user_session_middleware))
         .layer(middleware::from_fn_with_state(
             fwd_for_cfg,
             trusted_forwarded_for::trusted_forwarded_for,
         ))
+        // Add frontend fallback:
+        .route("/", get(crate::frontend::spa_handler))
+        .route("/{*path}", get(crate::frontend::spa_handler))
         .layer(TraceLayer::new_for_http())
 }
 

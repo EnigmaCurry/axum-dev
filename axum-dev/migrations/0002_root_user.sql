@@ -12,7 +12,7 @@ INSERT INTO [user] (
     status
 )
 VALUES (
-    'd5225232-bbee-4723-b0af-1526512fa098',
+    1,
     (SELECT id FROM identity_provider WHERE name = 'system'),
     'root',                        -- external_id
     'root@example.com',            -- email

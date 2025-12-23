@@ -2,8 +2,8 @@ use crate::models::ids::{IdentityProviderId, SignupMethodId, UserId};
 use crate::models::user_status::UserStatus;
 use bcrypt::verify as bcrypt_verify;
 use serde::{Deserialize, Serialize};
-use sqlx::Row;
 use sqlx::types::chrono::NaiveDateTime;
+use sqlx::Row;
 use sqlx::{Error, FromRow, SqlitePool};
 
 #[derive(Debug, Clone, FromRow)]
@@ -40,7 +40,7 @@ impl User {
             WHERE user_id = ?1
             "#,
         )
-        .bind(self.id.0.to_string())
+        .bind(self.id.0)
         .fetch_optional(pool)
         .await?;
 
@@ -85,12 +85,9 @@ impl From<User> for PublicUser {
 
 /// Example insert helper – adjust to your actual route needs.
 pub async fn insert_user(pool: &SqlitePool, new_user: CreateUser) -> sqlx::Result<User> {
-    let id = UserId::new();
-
     sqlx::query_as::<_, User>(
         r#"
         INSERT INTO [user] (
-            id,
             identity_provider_id,
             external_id,
             email,
@@ -98,7 +95,7 @@ pub async fn insert_user(pool: &SqlitePool, new_user: CreateUser) -> sqlx::Resul
             is_registered,
             status
         )
-        VALUES (?1, ?2, ?3, ?4, ?5, 0, 'active')
+        VALUES (?2, ?3, ?4, ?5, 0, 'active')
         RETURNING
             id,
             identity_provider_id,
@@ -113,7 +110,6 @@ pub async fn insert_user(pool: &SqlitePool, new_user: CreateUser) -> sqlx::Resul
             updated_at
         "#,
     )
-    .bind(id.0.to_string())
     .bind(new_user.identity_provider_id)
     .bind(new_user.external_id)
     .bind(new_user.email)
@@ -147,7 +143,7 @@ pub async fn select_user(pool: &SqlitePool, id: UserId) -> Result<Option<User>, 
         WHERE id = ?1
         "#,
     )
-    .bind(id.0.to_string())
+    .bind(id.0)
     .fetch_optional(pool)
     .await
 }

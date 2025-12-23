@@ -1,14 +1,14 @@
 use aide::axum::ApiRouter;
-use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
+use axum::Json;
 use schemars::JsonSchema;
 use serde::Serialize;
 
 use api_doc_macros::{api_doc, get_with_docs};
 
 use crate::errors::ErrorBody;
-use crate::response::{ApiJson, ApiResponse, json_error, json_ok};
+use crate::response::{json_error, json_ok, ApiJson, ApiResponse};
 use crate::server::AppState;
 
 #[derive(Serialize, JsonSchema)]

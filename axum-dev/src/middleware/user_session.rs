@@ -1,7 +1,8 @@
 use axum::extract::{FromRequestParts, Request};
-use axum::http::{StatusCode, request::Parts};
+use axum::http::{request::Parts, StatusCode};
 use axum::middleware::Next;
 use axum::response::Response;
+use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 use tower_sessions::Session;
 use uuid::Uuid;
@@ -15,7 +16,7 @@ const SESSION_KEY: &str = "user_session_v1";
 /// User session object contains a few global session data points per guest.
 pub struct UserSession {
     /// The internal user id:
-    pub user_id: String,
+    pub user_id: i64,
     /// The raw TCP peer address as seen by our server.
     pub peer_ip: String,
     /// External user id from OAuth or other trusted source.
