@@ -66,7 +66,7 @@ pub async fn trusted_header_auth(
     next: Next,
 ) -> Response {
     match cfg.method {
-        AuthenticationMethod::UsernamePassword => {
+        AuthenticationMethod::UsernamePassword | AuthenticationMethod::OIDC => {
             // Header is not supposed to be used; treat it as suspicious.
             if req.headers().contains_key(&cfg.trusted_header_name) {
                 warn!(

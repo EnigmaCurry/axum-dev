@@ -4,10 +4,10 @@ use crate::models::{
 };
 use aide::axum::ApiRouter;
 use axum::{
+    Json,
     extract::{Path, State},
     http::StatusCode,
     routing::{get, post},
-    Json,
 };
 
 use crate::models::user::{CreateUser, PublicUser};

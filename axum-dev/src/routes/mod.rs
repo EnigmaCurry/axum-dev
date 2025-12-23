@@ -1,15 +1,15 @@
 use aide::{axum::ApiRouter, openapi::OpenApi};
-use axum::{http::StatusCode, middleware, routing::get, Extension, Router};
+use axum::{Extension, Router, http::StatusCode, middleware, routing::get};
 use std::sync::Arc;
 use tower_http::{services::ServeDir, trace::TraceLayer};
 
 use crate::{
+    AppState,
     api_docs::{configure_openapi, docs_routes},
     middleware::{
-        admin_only::admin_only_middleware, csrf_protection, trusted_forwarded_for,
+        admin_only::admin_only_middleware, csrf_protection, oidc, trusted_forwarded_for,
         trusted_header_auth, user_session::user_session_middleware,
     },
-    AppState,
 };
 
 pub mod admin;
@@ -23,6 +23,7 @@ pub mod whoami;
 pub fn router(
     hdr_auth_cfg: trusted_header_auth::ForwardAuthConfig,
     fwd_for_cfg: trusted_forwarded_for::TrustedForwardedForConfig,
+    oidc_cfg: oidc::OidcConfig,
     state: AppState,
 ) -> Router<AppState> {
     let user_api = ApiRouter::<AppState>::new()
@@ -48,11 +49,11 @@ pub fn router(
         .merge(login_api)
         // Mount docs (stateless ApiRouter<()>)
         .nest_api_service("/docs", docs_routes())
+        // Admin route
+        .merge(admin_api)
         // Apply shared OpenAPI configuration:
         .finish_api_with(&mut api_spec, configure_openapi)
         .layer(Extension(Arc::new(api_spec)))
-        // Admin route (not documented in OpenAPI spec)
-        .merge(admin_api)
         // Add non-API routes:
         .nest_service("/static", ServeDir::new("static"))
         .route("/favicon.ico", get(favicon))

@@ -1,22 +1,18 @@
 use crate::{
     middleware::{
-        trusted_forwarded_for::TrustedForwardedForConfig, trusted_header_auth::ForwardAuthConfig,
+        oidc::OidcConfig, trusted_forwarded_for::TrustedForwardedForConfig,
+        trusted_header_auth::ForwardAuthConfig,
     },
     prelude::*,
     routes::router,
     tls::{
         dns::{AcmeDnsProvider, obtain_certificate_with_dns01},
         generate::{
-            ensure_rustls_crypto_provider, load_or_generate_self_signed,
-            renew_self_signed_loop,
+            ensure_rustls_crypto_provider, load_or_generate_self_signed, renew_self_signed_loop,
         },
-        self_signed_cache::{
-            delete_cached_pair, read_private_tls_file, read_tls_file,
-        },
+        self_signed_cache::{delete_cached_pair, read_private_tls_file, read_tls_file},
     },
-    util::write_files::{
-        atomic_write_file_0600, create_private_dir_all_0700,
-    },
+    util::write_files::{atomic_write_file_0600, create_private_dir_all_0700},
 };
 use anyhow::Context;
 use axum_server::{Handle, tls_rustls::RustlsConfig};
@@ -81,8 +77,9 @@ pub enum TlsConfig {
 /// Run the HTTP server until shutdown.
 pub async fn run(
     addr: SocketAddr,
-    user_cfg: ForwardAuthConfig,
-    fwd_cfg: TrustedForwardedForConfig,
+    forward_auth_cfg: ForwardAuthConfig,
+    forward_for_cfg: TrustedForwardedForConfig,
+    oidc_cfg: OidcConfig,
     db_url: String,
     session_secure: bool,
     session_expiry_secs: u64,
@@ -106,7 +103,13 @@ pub async fn run(
 
     // Shared state + router
     let state = AppState { db };
-    let app = build_app(user_cfg, fwd_cfg, state, session_layer);
+    let app = build_app(
+        forward_auth_cfg,
+        forward_for_cfg,
+        oidc_cfg,
+        state,
+        session_layer,
+    );
 
     ensure_rustls_crypto_provider();
 
@@ -254,12 +257,13 @@ fn start_session_deletion_task(
 }
 
 fn build_app(
-    user_cfg: ForwardAuthConfig,
-    fwd_cfg: TrustedForwardedForConfig,
+    forward_auth_cfg: ForwardAuthConfig,
+    forward_for_cfg: TrustedForwardedForConfig,
+    oidc_cfg: OidcConfig,
     state: AppState,
     session_layer: SessionManagerLayer<SqliteStore>,
 ) -> axum::Router {
-    router(user_cfg, fwd_cfg, state.clone())
+    router(forward_auth_cfg, forward_for_cfg, oidc_cfg, state.clone())
         .layer(session_layer)
         .with_state(state)
 }

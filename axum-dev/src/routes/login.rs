@@ -1,7 +1,7 @@
 use crate::errors::AppError;
 use crate::middleware::auth::AuthenticationMethod;
 use crate::models::user_status::UserStatus;
-use crate::response::{json_empty_ok, json_error, ApiJson, ApiResponse};
+use crate::response::{ApiJson, ApiResponse, json_empty_ok, json_error};
 use crate::{
     middleware::{
         trusted_header_auth, trusted_header_auth::ForwardAuthUser, user_session::UserSession,
@@ -11,12 +11,13 @@ use crate::{
     server::AppState,
 };
 
-use aide::{axum::ApiRouter, NoApi};
+use aide::{NoApi, axum::ApiRouter};
 use api_doc_macros::{api_doc, post_with_docs};
 use axum::{
+    Json,
     extract::{Extension, State},
     http::StatusCode,
-    middleware, Json,
+    middleware,
 };
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -26,6 +27,7 @@ pub fn router(user_cfg: trusted_header_auth::ForwardAuthConfig) -> ApiRouter<App
     match user_cfg.method {
         AuthenticationMethod::ForwardAuth => trusted_header_router(user_cfg),
         AuthenticationMethod::UsernamePassword => username_password_router(),
+        AuthenticationMethod::OIDC => oidc_router(),
     }
 }
 
@@ -56,6 +58,12 @@ fn username_password_router() -> ApiRouter<AppState> {
             "/api/login",
             post_with_docs!(username_password_login_handler),
         )
+        .api_route("/api/logout", post_with_docs!(logout_handler))
+}
+
+fn oidc_router() -> ApiRouter<AppState> {
+    ApiRouter::<AppState>::new()
+        //        .api_route("/api/login", post_with_docs!(oidc_login_handler))
         .api_route("/api/logout", post_with_docs!(logout_handler))
 }
 

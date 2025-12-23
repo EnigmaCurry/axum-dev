@@ -6,7 +6,7 @@ use axum::{
 use tracing::warn;
 
 use crate::middleware::user_session::UserSession;
-use crate::{errors::AppError, AppState}; // adjust path if needed
+use crate::{AppState, errors::AppError}; // adjust path if needed
 
 pub async fn admin_only_middleware(
     State(state): State<AppState>,

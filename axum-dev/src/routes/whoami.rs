@@ -1,11 +1,11 @@
 use std::collections::BTreeMap;
 
-use aide::{axum::ApiRouter, NoApi};
+use aide::{NoApi, axum::ApiRouter};
 use api_doc_macros::{api_doc, get_with_docs};
 use axum::{
+    Json,
     extract::{OriginalUri, Request},
     http::header::{HOST, USER_AGENT},
-    Json,
 };
 use schemars::JsonSchema;
 use serde::Serialize;
@@ -14,7 +14,7 @@ use crate::{
     errors::ErrorBody,
     middleware::user_session::UserSession,
     prelude::*,
-    response::{json_ok, ApiJson, ApiResponse},
+    response::{ApiJson, ApiResponse, json_ok},
 };
 
 /// All routes that live under `/whoami`.

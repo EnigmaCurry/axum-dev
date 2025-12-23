@@ -21,8 +21,9 @@ pub struct ServePlan {
     pub addr: SocketAddr,
     pub tls_config: server::TlsConfig,
     pub db_url: String,
-    pub auth_cfg: middleware::trusted_header_auth::ForwardAuthConfig,
-    pub fwd_cfg: middleware::trusted_forwarded_for::TrustedForwardedForConfig,
+    pub forward_auth_cfg: middleware::trusted_header_auth::ForwardAuthConfig,
+    pub forward_for_cfg: middleware::trusted_forwarded_for::TrustedForwardedForConfig,
+    pub oidc_cfg: middleware::oidc::OidcConfig,
     pub session_secure: bool,
     pub session_expiry_secs: u64,
     pub session_check_secs: u64,
@@ -32,14 +33,15 @@ fn plan_serve(cfg: &AppConfig, root_dir: &Path) -> Result<ServePlan, CliError> {
     let addr = parse_listen_addr(cfg)?;
     let tls_config = build_tls_config(cfg, root_dir)?;
     let db_url = build_db_url(cfg.database.url.clone(), root_dir);
-    let (auth_cfg, fwd_cfg) = build_auth_cfgs(cfg)?;
+    let (forward_auth_cfg, forward_for_cfg, oidc_cfg) = build_auth_cfgs(cfg)?;
 
     Ok(ServePlan {
         addr,
         tls_config,
         db_url,
-        auth_cfg,
-        fwd_cfg,
+        forward_auth_cfg,
+        forward_for_cfg,
+        oidc_cfg,
         session_secure: true,
         session_expiry_secs: cfg.session.expiry_seconds,
         session_check_secs: cfg.session.check_seconds,
@@ -62,8 +64,9 @@ pub fn serve(cfg: AppConfig, root_dir: PathBuf) -> Result<(), CliError> {
     let rt = create_runtime()?;
     rt.block_on(server::run(
         plan.addr,
-        plan.auth_cfg,
-        plan.fwd_cfg,
+        plan.forward_auth_cfg,
+        plan.forward_for_cfg,
+        plan.oidc_cfg,
         plan.db_url,
         plan.session_secure,
         plan.session_expiry_secs,
@@ -142,7 +145,8 @@ fn build_tls_config(cfg: &AppConfig, root_dir: &Path) -> Result<server::TlsConfi
 
         TlsMode::Acme => {
             let cache_dir: PathBuf = root_dir.join(TLS_CACHE_DIR);
-            create_private_dir_all_0700_sync(&cache_dir).context(format!("TLS cache dir invalid: {}", cache_dir.display()))?;
+            create_private_dir_all_0700_sync(&cache_dir)
+                .context(format!("TLS cache dir invalid: {}", cache_dir.display()))?;
 
             let domains = build_acme_domains(cfg)?;
             let directory_url = cfg.tls.acme_directory_url.clone();
@@ -232,6 +236,7 @@ fn build_auth_cfgs(
     (
         middleware::trusted_header_auth::ForwardAuthConfig,
         middleware::trusted_forwarded_for::TrustedForwardedForConfig,
+        middleware::oidc::OidcConfig,
     ),
     CliError,
 > {
@@ -242,7 +247,7 @@ fn build_auth_cfgs(
 
     let trusted_proxy: Option<IpAddr> = cfg.auth.trusted_proxy;
 
-    let auth_cfg = middleware::trusted_header_auth::ForwardAuthConfig {
+    let forward_auth_cfg = middleware::trusted_header_auth::ForwardAuthConfig {
         method: auth_method,
         trusted_header_name,
         trusted_proxy,
@@ -262,13 +267,16 @@ fn build_auth_cfgs(
         AuthenticationMethod::UsernamePassword => {
             info!("Authentication method: username_password");
         }
+        AuthenticationMethod::OIDC => {
+            info!("Authentication method: oidc");
+        }
     }
 
     let fwd_enabled = cfg.auth.trusted_forwarded_for;
     let fwd_header_str = cfg.auth.trusted_forwarded_for_name.as_str();
     let fwd_header_name = parse_header_name(fwd_header_str, "forwarded-for header")?;
 
-    let fwd_cfg = middleware::trusted_forwarded_for::TrustedForwardedForConfig {
+    let forward_for_cfg = middleware::trusted_forwarded_for::TrustedForwardedForConfig {
         enabled: fwd_enabled,
         header_name: fwd_header_name,
         trusted_proxy,
@@ -278,7 +286,13 @@ fn build_auth_cfgs(
         info!("Trusted FORWARDED-FOR enabled: header='{fwd_header_str}', trusted_proxy={t}");
     }
 
-    Ok((auth_cfg, fwd_cfg))
+    let oidc_cfg = middleware::oidc::OidcConfig {
+        issuer: cfg.auth.oidc_issuer.clone(),
+        client_id: cfg.auth.oidc_client_id.clone(),
+        client_secret: cfg.auth.oidc_client_secret.clone(),
+    };
+
+    Ok((forward_auth_cfg, forward_for_cfg, oidc_cfg))
 }
 
 fn parse_header_name(name: &str, label: &str) -> Result<HeaderName, CliError> {

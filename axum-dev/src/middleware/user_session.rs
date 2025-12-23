@@ -1,5 +1,5 @@
 use axum::extract::{FromRequestParts, Request};
-use axum::http::{request::Parts, StatusCode};
+use axum::http::{StatusCode, request::Parts};
 use axum::middleware::Next;
 use axum::response::Response;
 use derivative::Derivative;

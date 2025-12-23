@@ -5,9 +5,9 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    errors::ErrorBody,
-    response::{json_ok, ApiJson, ApiResponse},
     AppState,
+    errors::ErrorBody,
+    response::{ApiJson, ApiResponse, json_ok},
 };
 
 pub fn router() -> ApiRouter<AppState> {

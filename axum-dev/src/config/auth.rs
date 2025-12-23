@@ -37,6 +37,16 @@ pub struct AuthConfig {
     )]
     #[conf(default(DEFAULT_FORWARDED_FOR_HEADER.to_string()))]
     pub trusted_forwarded_for_name: String,
+
+    /// OIDC (OAuth2) issuer
+    #[arg(long = "auth-oidc-issuer", env = "AUTH_OIDC_ISSUER")]
+    pub oidc_issuer: Option<String>,
+    /// OIDC (OAuth2) client id
+    #[arg(long = "auth-oidc-client-id", env = "AUTH_OIDC_CLIENT_ID")]
+    pub oidc_client_id: Option<String>,
+    /// OIDC (OAuth2) client secret
+    #[arg(long = "auth-oidc-client-secret", env = "AUTH_OIDC_CLIENT_SECRET")]
+    pub oidc_client_secret: Option<String>,
 }
 
 impl Default for AuthConfig {
@@ -47,6 +57,9 @@ impl Default for AuthConfig {
             trusted_proxy: None,
             trusted_forwarded_for: false,
             trusted_forwarded_for_name: DEFAULT_FORWARDED_FOR_HEADER.to_string(),
+            oidc_issuer: None,
+            oidc_client_id: None,
+            oidc_client_secret: None,
         }
     }
 }
