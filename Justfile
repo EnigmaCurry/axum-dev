@@ -16,7 +16,7 @@ ENV_DIST        := env_var_or_default("ENV_DIST", ".env-dist")
 CARGO_PROFILE   := env_var_or_default("CARGO_PROFILE","release")
 
 HOME         := env_var("HOME")
-APP          := "${APP}"
+APP          := "axum-dev"
 PROJECT_DIR  := ROOT / APP
 MANIFEST     := PROJECT_DIR / "Cargo.toml"
 CARGO_TOML   := MANIFEST

@@ -11,7 +11,7 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  PROJECT_DIR: ${APP}
+  PROJECT_DIR: axum-dev
 
 jobs:
   build:
