@@ -33,7 +33,6 @@ CREATE TABLE [user] (
     identity_provider_id INTEGER NOT NULL REFERENCES identity_provider(id),
     external_id          TEXT NOT NULL,   -- value from ForwardAuth (e.g. subject or email)
 
-    email                TEXT NOT NULL,   -- email as given by ForwardAuth
     username             TEXT,            -- user-chosen username; see CHECK below
 
     is_registered        INTEGER NOT NULL DEFAULT 0
@@ -54,7 +53,6 @@ CREATE TABLE [user] (
     ),
 
     UNIQUE(identity_provider_id, external_id),
-    UNIQUE(identity_provider_id, email),
     UNIQUE(username)
 );
 

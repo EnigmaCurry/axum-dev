@@ -5,7 +5,6 @@ INSERT INTO [user] (
     id,
     identity_provider_id,
     external_id,
-    email,
     username,
     is_registered,
     signup_method_id,
@@ -15,7 +14,6 @@ VALUES (
     1,
     (SELECT id FROM identity_provider WHERE name = 'system'),
     'root',                        -- external_id
-    'root@example.com',            -- email
     'root',                        -- username
     1,                             -- is_registered
     (SELECT id FROM signup_method WHERE code = 'admin'),

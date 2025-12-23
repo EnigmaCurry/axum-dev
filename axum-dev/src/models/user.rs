@@ -11,7 +11,6 @@ pub struct User {
     pub id: UserId,
     pub identity_provider_id: IdentityProviderId,
     pub external_id: String,
-    pub email: String,
     pub username: Option<String>,
 
     pub is_registered: bool,
@@ -62,14 +61,12 @@ pub struct CreateUser {
     // shape of whatever your route needs; example:
     pub identity_provider_id: IdentityProviderId,
     pub external_id: String,
-    pub email: String,
     pub username: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct PublicUser {
     pub id: UserId,
-    pub email: String,
     pub username: Option<String>,
 }
 
@@ -77,7 +74,6 @@ impl From<User> for PublicUser {
     fn from(u: User) -> Self {
         Self {
             id: u.id,
-            email: u.email,
             username: u.username,
         }
     }
@@ -90,7 +86,6 @@ pub async fn insert_user(pool: &SqlitePool, new_user: CreateUser) -> sqlx::Resul
         INSERT INTO [user] (
             identity_provider_id,
             external_id,
-            email,
             username,
             is_registered,
             status
@@ -100,7 +95,6 @@ pub async fn insert_user(pool: &SqlitePool, new_user: CreateUser) -> sqlx::Resul
             id,
             identity_provider_id,
             external_id,
-            email,
             username,
             is_registered,
             registered_at,
@@ -112,7 +106,6 @@ pub async fn insert_user(pool: &SqlitePool, new_user: CreateUser) -> sqlx::Resul
     )
     .bind(new_user.identity_provider_id)
     .bind(new_user.external_id)
-    .bind(new_user.email)
     .bind(new_user.username)
     .fetch_one(pool)
     .await
@@ -131,7 +124,6 @@ pub async fn select_user(pool: &SqlitePool, id: UserId) -> Result<Option<User>, 
             id,
             identity_provider_id,
             external_id,
-            email,
             username,
             is_registered,
             registered_at,
@@ -164,7 +156,6 @@ pub async fn select_user_by_external_id(
             id,
             identity_provider_id,
             external_id,
-            email,
             username,
             is_registered,
             registered_at,
@@ -197,7 +188,6 @@ pub async fn select_user_by_username(
             id,
             identity_provider_id,
             external_id,
-            email,
             username,
             is_registered,
             registered_at,
@@ -231,7 +221,6 @@ async fn forwardauth_identity_provider_id(pool: &SqlitePool) -> Result<IdentityP
 /// Get an existing user by e-mail, or create one if it doesn’t exist.
 ///
 /// - Uses the `traefik-forwardauth` identity provider.
-/// - Uses the email as `external_id` as well.
 pub async fn get_or_create_by_external_id(
     pool: &SqlitePool,
     external_id: &str,
@@ -244,12 +233,9 @@ pub async fn get_or_create_by_external_id(
     // No existing user – create one.
     let identity_provider_id = forwardauth_identity_provider_id(pool).await?;
 
-    // TODO: verify external_id is an email address, if not raise not implemented error.
-
     let new_user = CreateUser {
         identity_provider_id,
         external_id: external_id.to_string(),
-        email: external_id.to_string(),
         username: None,
     };
 
