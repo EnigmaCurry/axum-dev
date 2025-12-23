@@ -350,11 +350,13 @@ create-test-certs:
     @set -euo pipefail; \
     ./_scripts/create-test-certs.sh
 
+# Instantiate the rust-axum-template to a new branch
 new-template-branch:
     @set -euo pipefail; \
     source ${FUNCS_SCRIPT}; \
     REMOTE=../rust-axum-template fresh_template_branch
 
+# Merge all changed files in the upstream rust-axum-template
 merge-template-upstream:
     @set -euo pipefail; \
     ./_scripts/merge_template_upstream.sh
