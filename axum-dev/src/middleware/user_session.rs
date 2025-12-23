@@ -17,6 +17,7 @@ const SESSION_KEY: &str = "user_session_v1";
 pub struct UserSession {
     /// The internal user id:
     pub user_id: i64,
+    pub username: Option<String>,
     /// The raw TCP peer address as seen by our server.
     pub peer_ip: String,
     /// External user id from OAuth or other trusted source.

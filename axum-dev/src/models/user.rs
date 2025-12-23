@@ -181,13 +181,16 @@ pub async fn select_user_by_external_id(
     .await
 }
 
-/// Look up a user by email address
+/// Look up a user by username
 ///
 /// Returns:
 ///   * `Ok(Some(user))` – row exists.
 ///   * `Ok(None)`       – no row with that external id.
 ///   * `Err(e)`         – DB error.
-pub async fn select_user_by_email(pool: &SqlitePool, email: &str) -> Result<Option<User>, Error> {
+pub async fn select_user_by_username(
+    pool: &SqlitePool,
+    username: &str,
+) -> Result<Option<User>, Error> {
     sqlx::query_as::<_, User>(
         r#"
         SELECT
@@ -203,10 +206,10 @@ pub async fn select_user_by_email(pool: &SqlitePool, email: &str) -> Result<Opti
             created_at,
             updated_at
         FROM [user]
-        WHERE email = ?1
+        WHERE username = ?1
         "#,
     )
-    .bind(email)
+    .bind(username)
     .fetch_optional(pool)
     .await
 }

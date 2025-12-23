@@ -27,6 +27,7 @@ pub fn router() -> ApiRouter<AppState> {
 struct WhoamiSessionData {
     #[serde(default)]
     pub is_logged_in: bool,
+    pub username: Option<String>,
     pub external_user_id: Option<String>,
     pub client_ip: Option<String>,
     pub csrf_token: String,
@@ -68,11 +69,13 @@ async fn whoami_json(
         req_map.insert(name.as_str().to_string(), val_str.to_string());
     }
 
+    warn!("{:?}", user_session);
     let session = WhoamiSessionData {
         client_ip: match &user_session.client_ip {
             Some(ip) => Some(ip.clone()),
             None => Some(user_session.peer_ip.clone()),
         },
+        username: user_session.username,
         external_user_id: user_session.external_user_id,
         is_logged_in: user_session.is_logged_in,
         visit_count: user_session.visit_count,

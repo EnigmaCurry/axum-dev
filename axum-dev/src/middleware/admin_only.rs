@@ -6,7 +6,7 @@ use axum::{
 use tracing::warn;
 
 use crate::middleware::user_session::UserSession;
-use crate::{AppState, errors::AppError}; // adjust path if needed
+use crate::{errors::AppError, AppState}; // adjust path if needed
 
 pub async fn admin_only_middleware(
     State(state): State<AppState>,
@@ -20,10 +20,8 @@ pub async fn admin_only_middleware(
     if !user_session.is_logged_in {
         warn!(
             %path,
-            external_user_id = user_session
-                .external_user_id
-                .as_deref()
-                .unwrap_or("<none>"),
+            username = user_session
+                .username,
             client_ip = user_session
                 .client_ip
                 .as_deref()
@@ -55,10 +53,8 @@ pub async fn admin_only_middleware(
         warn!(
             %path,
             ?user_id,
-            external_user_id = user_session
-                .external_user_id
-                .as_deref()
-                .unwrap_or("<none>"),
+            username = user_session
+                .username,
             client_ip = user_session
                 .client_ip
                 .as_deref()

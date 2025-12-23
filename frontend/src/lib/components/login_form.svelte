@@ -17,20 +17,19 @@
   } = $props();
 
   // --- reactive state (Svelte 5 runes) ---
-  let email = $state("");
+  let username = $state("");
   let password = $state("");
 
   let csrfToken = $state("");
   let isLoggedIn = $state(false);
-  let userId = $state(null); // external_user_id
   let loading = $state(false);
   let errorMsg = $state("");
 
   function applyWhoami(json) {
     const session = json?.data?.session;
     csrfToken = typeof session?.csrf_token === "string" ? session.csrf_token : "";
+    username = session.username;
     isLoggedIn = !!session?.is_logged_in;
-    userId = session?.external_user_id ?? null;
   }
 
   async function fetchWhoami() {
@@ -72,7 +71,7 @@
     }
 
     // try login
-    let res = await postJson(loginAction, { email, password });
+    let res = await postJson(loginAction, { username, password });
     let json = await res.json().catch(() => null);
 
     // if csrf rotated/expired, refresh token once and retry
@@ -81,7 +80,7 @@
       (json?.error?.code === "csrf_invalid" || json?.error?.code === "csrf_missing")
     ) {
       await fetchWhoami();
-      res = await postJson(loginAction, { email, password });
+      res = await postJson(loginAction, { username, password });
       json = await res.json().catch(() => null);
     }
 
@@ -142,7 +141,7 @@
     {#if isLoggedIn}
       <Card.Title class="text-2xl">You’re signed in</Card.Title>
       <Card.Description>
-        Signed in as <span class="font-mono">{userId ?? "(unknown)"}</span>
+        Signed in as <span class="font-mono">{username ?? "(unknown)"}</span>
       </Card.Description>
     {:else}
       <Card.Title class="text-2xl">Sign in</Card.Title>
@@ -163,14 +162,14 @@
       <form onsubmit={submitLogin}>
         <FieldGroup>
           <Field>
-            <FieldLabel for={"email-" + id}>Email</FieldLabel>
+            <FieldLabel for={"username-" + id}>Username</FieldLabel>
             <Input
-              id={"email-" + id}
-              type="email"
-              placeholder="m@example.com"
-              autocomplete="email"
+              id={"username-" + id}
+              type="username"
+              placeholder="username"
+              autocomplete="username"
               required
-              bind:value={email}
+              bind:value={username}
             />
           </Field>
 

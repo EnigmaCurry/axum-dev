@@ -32,8 +32,8 @@ pub fn router(user_cfg: trusted_header_auth::ForwardAuthConfig) -> ApiRouter<App
 /// Request body for username/password login.
 #[derive(Deserialize, JsonSchema)]
 struct PasswordLoginRequest {
-    /// The email address for this account.
-    email: String,
+    /// The username for this account.
+    username: String,
     /// The plaintext password for this account.
     password: String,
 }
@@ -109,9 +109,9 @@ async fn username_password_login_handler(
     NoApi(session): NoApi<Session>,
     Json(body): Json<PasswordLoginRequest>,
 ) -> ApiJson<()> {
-    const INVALID_CREDENTIALS: &str = "invalid email address or password";
+    const INVALID_CREDENTIALS: &str = "invalid username or password";
 
-    let user = match user::select_user_by_email(&state.db, &body.email).await {
+    let user = match user::select_user_by_username(&state.db, &body.username).await {
         Ok(Some(user)) => user,
         Ok(None) => {
             return json_error(StatusCode::UNAUTHORIZED, INVALID_CREDENTIALS);
@@ -154,6 +154,7 @@ async fn finish_login_for_user(
 
     user_session.user_id = user.id.0;
     user_session.external_user_id = Some(user.external_id.clone());
+    user_session.username = user.username;
     user_session.is_logged_in = true;
 
     user_session.persist(session).await?;
