@@ -7,17 +7,15 @@ use crate::{
     tls::{
         dns::{AcmeDnsProvider, obtain_certificate_with_dns01},
         generate::{
-            default_self_signed_dn, ensure_rustls_crypto_provider,
-            generate_self_signed_with_validity, load_or_generate_self_signed,
+            ensure_rustls_crypto_provider, load_or_generate_self_signed,
             renew_self_signed_loop,
         },
         self_signed_cache::{
-            delete_cached_pair, inspect_self_signed_cert_pem, read_private_tls_file, read_tls_file,
-            validate_self_signed_cert_pem,
+            delete_cached_pair, read_private_tls_file, read_tls_file,
         },
     },
     util::write_files::{
-        atomic_write_file_0600, create_private_dir_all_0700, validate_private_dir_0700,
+        atomic_write_file_0600, create_private_dir_all_0700,
     },
 };
 use anyhow::Context;

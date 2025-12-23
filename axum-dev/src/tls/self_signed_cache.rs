@@ -1,7 +1,6 @@
 use super::{cert_details::CertDetails, generate::SelfSignedDn};
-use ::time::{Duration, OffsetDateTime};
+use ::time::OffsetDateTime;
 use anyhow::{Context, bail};
-use rcgen::BasicConstraints;
 use rustls_pemfile::certs as load_pem_certs;
 use std::path::Path;
 use tokio::fs;

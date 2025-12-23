@@ -182,7 +182,7 @@ pub(crate) fn ensure_config_file_exists(cfg_path: &Path) -> Result<(), CliError>
     if is_defaults && !cfg_path.exists() {
         if let Some(parent) = cfg_path.parent() {
             create_private_dir_all_0700_sync(parent)
-                .context((|| format!("data directory invalid: {}", parent.display()))())?;
+                .context(format!("data directory invalid: {}", parent.display()))?;
         }
 
         match OpenOptions::new()

@@ -1,4 +1,4 @@
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsString;
 use std::{fmt, io::Write, path::PathBuf, str::FromStr};
 
 use crate::{config::default_root_dir, errors::CliError};
@@ -120,7 +120,7 @@ pub(crate) fn args_after_subcommand(
     args: &[std::ffi::OsString],
     sub: &str,
 ) -> Option<Vec<std::ffi::OsString>> {
-    let bin = args.get(0)?.clone();
+    let bin = args.first()?.clone();
     let idx = args.iter().position(|a| a.to_string_lossy() == sub)?;
     let mut out = Vec::with_capacity(1 + (args.len().saturating_sub(idx + 1)));
     out.push(bin);
@@ -175,12 +175,11 @@ where
         }
 
         // -v=3
-        if let Some(rest_num) = s.strip_prefix("-v=") {
-            if let Ok(n) = rest_num.parse::<u8>() {
+        if let Some(rest_num) = s.strip_prefix("-v=")
+            && let Ok(n) = rest_num.parse::<u8>() {
                 explicit = Some(n);
                 continue;
             }
-        }
 
         // otherwise keep arg
         rest.push(arg);

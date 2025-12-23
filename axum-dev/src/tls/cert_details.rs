@@ -41,7 +41,7 @@ impl CertDetails {
 }
 
 pub fn format_remaining_compact(d: Duration) -> String {
-    let mut secs = d.whole_seconds();
+    let secs = d.whole_seconds();
     let sign = if secs < 0 { "-" } else { "" };
     let secs_u = secs.unsigned_abs(); // u64
 

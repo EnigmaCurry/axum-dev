@@ -12,7 +12,6 @@ use instant_acme::{
     NewAccount, NewOrder, OrderStatus, RetryPolicy,
 };
 use serde_json;
-use tracing::warn;
 
 use crate::util::write_files::create_private_dir_all_0700;
 

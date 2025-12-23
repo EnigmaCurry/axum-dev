@@ -15,7 +15,7 @@ use anyhow::Context;
 use axum::http::HeaderName;
 use tracing::{debug, error, info};
 
-static TLS_CACHE_DIR: &'static str = "tls-cache";
+static TLS_CACHE_DIR: &str = "tls-cache";
 
 pub struct ServePlan {
     pub addr: SocketAddr,
@@ -142,9 +142,7 @@ fn build_tls_config(cfg: &AppConfig, root_dir: &Path) -> Result<server::TlsConfi
 
         TlsMode::Acme => {
             let cache_dir: PathBuf = root_dir.join(TLS_CACHE_DIR);
-            create_private_dir_all_0700_sync(&cache_dir).context((|| {
-                format!("TLS cache dir invalid: {}", cache_dir.display())
-            })())?;
+            create_private_dir_all_0700_sync(&cache_dir).context(format!("TLS cache dir invalid: {}", cache_dir.display()))?;
 
             let domains = build_acme_domains(cfg)?;
             let directory_url = cfg.tls.acme_directory_url.clone();

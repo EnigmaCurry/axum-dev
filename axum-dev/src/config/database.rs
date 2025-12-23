@@ -3,7 +3,6 @@ use std::path::Path;
 use conf::Conf;
 use serde::{Deserialize, Serialize};
 
-use super::AppConfig;
 
 #[derive(Conf, Debug, Clone, Serialize, Deserialize)]
 #[conf(serde)]

@@ -1,5 +1,4 @@
 use std::io::Write;
-use tracing::info;
 
 use crate::{
     config::{ServeConfig, database::build_db_url},
@@ -53,7 +52,7 @@ pub fn sql<W1: Write, W2: Write>(
     let command = args.app.database.sqlite_path;
 
     // Optional: log what we're about to open
-    println!("");
+    println!();
     println!("## Running {command}");
     println!("## Opening database {}", db_path);
 

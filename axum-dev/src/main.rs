@@ -187,7 +187,7 @@ fn help_prints_when_no_subcommand() {
     let actual = String::from_utf8(out).expect("stdout should be valid utf8");
 
     // Very loose assertion: just make sure it looks like help and mentions 'serve'.
-    assert!(actual.len() > 0, "help output is blank");
+    assert!(!actual.is_empty(), "help output is blank");
     assert!(
         actual.contains("Run the HTTP API server"),
         "help output did not mention the 'serve' subcommand.\nActual help:\n{actual}"

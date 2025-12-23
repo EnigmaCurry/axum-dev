@@ -16,9 +16,7 @@ pub fn acme_dns_register<W1: Write, W2: Write>(
     // Where to store creds:
     let cache_dir = root_dir.join("tls-cache");
 
-    create_private_dir_all_0700_sync(&cache_dir).context((|| {
-        format!("TLS cache dir invalid: {}", cache_dir.display())
-    })())?;
+    create_private_dir_all_0700_sync(&cache_dir).context(format!("TLS cache dir invalid: {}", cache_dir.display()))?;
 
     // Build domain list from NET_HOST + TLS_SANS for CNAME hints
     let mut domains: Vec<String> = Vec::new();

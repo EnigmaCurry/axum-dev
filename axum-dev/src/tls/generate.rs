@@ -1,24 +1,21 @@
 use anyhow::Context;
-use axum_server::tls_rustls::RustlsConfig;
 use rcgen::{
     BasicConstraints, CertificateParams, DistinguishedName, ExtendedKeyUsagePurpose, Issuer,
     KeyPair, KeyUsagePurpose,
 };
 use std::{
-    path::PathBuf,
     sync::Once,
     time::{Duration, SystemTime},
 };
 use time::OffsetDateTime;
 use tracing::info;
-use tracing::warn;
 
 use crate::{
     tls::{
         cert_details::format_remaining_compact,
         self_signed_cache::{
             delete_cached_pair, inspect_self_signed_cert_pem, read_private_tls_file, read_tls_file,
-            validate_leaf_signed_by_ca_cert_pem, validate_self_signed_cert_pem,
+            validate_leaf_signed_by_ca_cert_pem,
         },
     },
     util::write_files::{
@@ -27,10 +24,10 @@ use crate::{
 };
 
 static INSTALL_RUSTLS_PROVIDER: Once = Once::new();
-const CERT_FILE_NAME: &'static str = "self_signed_cert.pem";
-const KEY_FILE_NAME: &'static str = "self_signed_key.pem";
-const CA_CERT_FILE_NAME: &'static str = "self_signed_CA_cert.pem";
-const CA_KEY_FILE_NAME: &'static str = "self_signed_CA_key.pem";
+const CERT_FILE_NAME: &str = "self_signed_cert.pem";
+const KEY_FILE_NAME: &str = "self_signed_key.pem";
+const CA_CERT_FILE_NAME: &str = "self_signed_CA_cert.pem";
+const CA_KEY_FILE_NAME: &str = "self_signed_CA_key.pem";
 
 #[derive(Debug, Clone)]
 pub struct TlsMaterial {
@@ -138,7 +135,7 @@ pub async fn load_or_generate_self_signed(
     let leaf_dn = default_self_signed_dn();
 
     if let Some(dir) = cache_dir.as_ref() {
-        create_private_dir_all_0700(&dir)
+        create_private_dir_all_0700(dir)
             .await
             .map_err(|e| anyhow::anyhow!("TLS cache dir invalid: {e:#}"))?;
 
