@@ -11,11 +11,15 @@ use std::{
 };
 use time::OffsetDateTime;
 use tracing::info;
+use tracing::warn;
 
 use crate::{
-    tls::self_signed_cache::{
-        delete_cached_pair, inspect_self_signed_cert_pem, read_private_tls_file, read_tls_file,
-        validate_leaf_signed_by_ca_cert_pem, validate_self_signed_cert_pem,
+    tls::{
+        cert_details::format_remaining_compact,
+        self_signed_cache::{
+            delete_cached_pair, inspect_self_signed_cert_pem, read_private_tls_file, read_tls_file,
+            validate_leaf_signed_by_ca_cert_pem, validate_self_signed_cert_pem,
+        },
     },
     util::write_files::{
         atomic_write_file_0600, create_private_dir_all_0700, validate_private_dir_0700,
@@ -145,7 +149,6 @@ pub async fn load_or_generate_self_signed(
         let (ca_cert_pem, ca_key_pem) = {
             let ca_cert_exists = tokio::fs::try_exists(&ca_cert_path).await?;
             let ca_key_exists = tokio::fs::try_exists(&ca_key_path).await?;
-
             // 1) Load or create CA
             if ca_cert_exists && ca_key_exists {
                 let cert_pem = read_tls_file(&ca_cert_path).await?;
@@ -256,13 +259,6 @@ pub async fn load_or_generate_self_signed(
             delete_cached_pair(&cert_path, &key_path).await?;
         }
 
-        info!(
-            "Generating new cached self-signed TLS certificate (valid_secs={}, sans={:?}) in '{}'",
-            leaf_valid_secs,
-            sans,
-            dir.display()
-        );
-
         let (leaf_cert_pem, leaf_key_pem) = generate_leaf_signed_by_local_ca(
             &ca_cert_pem,
             &ca_key_pem,
@@ -294,12 +290,9 @@ pub async fn load_or_generate_self_signed(
         });
     }
 
-    info!(
-        "Generating ephemeral self-signed TLS certificate (valid_secs={}, sans={:?}); not cached",
-        leaf_valid_secs, sans
-    );
+    info!("Generating ephemeral self-signed TLS certificate; not cached");
 
-    let (cert_pem, key_pem) = generate_self_signed_with_validity(sans, leaf_valid_secs)?;
+    let (cert_pem, key_pem) = generate_self_signed_with_validity(sans.clone(), leaf_valid_secs)?;
 
     let fp = sha256_fingerprint_first_cert_pem(&cert_pem)
         .unwrap_or_else(|e| format!("(fingerprint unavailable: {e})"));
@@ -308,8 +301,8 @@ pub async fn load_or_generate_self_signed(
 
     if let Some(details) = details {
         info!(
-            "Generated new self-signed TLS certificate (sha256_fingerprint={}, expires {}, remaining {})",
-            fp, details.not_after, details.remaining_human
+            "Generated new self-signed TLS certificate (sans={:?}, sha256_fingerprint={}, expires {}, remaining {})",
+            sans, fp, details.not_after, details.remaining_human
         );
     } else {
         info!(
@@ -344,10 +337,9 @@ pub async fn renew_self_signed_loop(
         .saturating_sub(renew_margin)
         .max(Duration::from_secs(1));
     info!(
-        "self-signed TLS: validity={}s; will renew {}s before expiry (~every {}s); cache_dir={:?}; sans={:?}",
-        validity.as_secs(),
+        "Starting scheduled process to renew certificate; will renew {}s before expiry (~every {}); cache_dir={:?}; sans={:?}",
         renew_margin.as_secs(),
-        renew_every.as_secs(),
+        format_remaining_compact(renew_every.try_into().expect("TODO remove this expect")),
         cache_dir,
         sans,
     );

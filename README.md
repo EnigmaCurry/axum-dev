@@ -220,6 +220,59 @@ See optional fields: `--tls-acme-email` if you want to set your ACME
 account email address, `--tls-san` if you want additional SAN records
 for your certificate.
 
+## Write config file
+
+If you would like to transform your command line parameters and
+environment variables into a config file, you may use the `config`
+command.
+
+Here is the same ACME-DNS example as before, except instead of the
+`serve` command, it is using the `config` command:
+
+```
+axum-dev command -v \
+  --net-host               axum-dev.example.org \
+  --net-listen-ip          0.0.0.0 \
+  --net-listen-port        8443 \
+  --auth-method            username_password \
+  --tls-mode               acme \
+  --tls-acme-challenge     dns-01 \
+  --tls-acme-directory-url https://acme-v02.api.letsencrypt.org/directory \
+  --acme-dns-api-base      https://auth.acme-dns.io
+```
+
+This outputs the TOML configuration to stdout:
+
+```
+## Example axum-dev config ::
+## (Write this to ~/.local/share/axum-dev/defaults.toml)
+## CLI options and env vars will always supercede this file.
+
+[network]
+listen_ip = "0.0.0.0"
+listen_port = 8443
+host = "axum-dev.example.org"
+
+[session]
+check_seconds = 60
+expiry_seconds = 60480
+
+[auth]
+method = "UsernamePassword"
+
+[tls]
+mode = "Acme"
+sans = []
+acme_challenge = "Dns01"
+acme_directory_url = "https://acme-v02.api.letsencrypt.org/directory"
+self_signed_ephemeral = false
+acme_dns_api_base = "https://auth.acme-dns.io"
+```
+
+If you write this to `~/.local/share/axum-dev/defaults.toml`, then you
+can drop all the command line arguments and then just run `axum-dev
+serve` to use it.
+
 ## Development
 
 See [DEVELOPMENT.md](DEVELOPMENT.md)

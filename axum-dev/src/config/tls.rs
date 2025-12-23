@@ -10,6 +10,7 @@ use std::{fmt, str::FromStr};
 use super::StringList;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
 pub enum TlsMode {
     /// No TLS – listen on plain HTTP only.
     #[default]
@@ -51,8 +52,10 @@ impl FromStr for TlsMode {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
 pub enum TlsAcmeChallenge {
     #[default]
+    #[serde(rename = "tls_alpn_01")]
     TlsAlpn01,
     Http01,
     Dns01,
