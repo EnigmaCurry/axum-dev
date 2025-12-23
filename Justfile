@@ -349,4 +349,8 @@ template-diff *args:
 create-test-certs:
     @set -euo pipefail; \
     ./_scripts/create-test-certs.sh
-    
+
+new-template-branch:
+    @set -euo pipefail; \
+    source ${FUNCS_SCRIPT}; \
+    fresh_template_branch
