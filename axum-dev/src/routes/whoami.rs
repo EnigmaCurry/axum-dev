@@ -69,7 +69,6 @@ async fn whoami_json(
         req_map.insert(name.as_str().to_string(), val_str.to_string());
     }
 
-    warn!("{:?}", user_session);
     let session = WhoamiSessionData {
         client_ip: match &user_session.client_ip {
             Some(ip) => Some(ip.clone()),
