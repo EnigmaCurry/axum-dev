@@ -230,7 +230,7 @@ Here is the same ACME-DNS example as before, except instead of the
 `serve` command, it is using the `config` command:
 
 ```
-axum-dev command -v \
+axum-dev config -v \
   --net-host               axum-dev.example.org \
   --net-listen-ip          0.0.0.0 \
   --net-listen-port        8443 \
