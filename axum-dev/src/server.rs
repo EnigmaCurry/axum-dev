@@ -103,12 +103,8 @@ pub async fn run(
     .await?;
     let deletion_abort = deletion_task.abort_handle();
 
-    // inside async fn server::run(...)
-    let oidc_auth_layer = if oidc_cfg.enabled {
-        Some(build_oidc_auth_layer(&oidc_cfg).await?)
-    } else {
-        None
-    };
+    let oidc_auth_layer = build_oidc_auth_layer(&oidc_cfg).await?;
+    debug_assert!(!oidc_cfg.enabled || oidc_auth_layer.is_some());
 
     // Shared state + router
     let state = AppState { db };

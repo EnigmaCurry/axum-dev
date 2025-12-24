@@ -1,23 +1,8 @@
-use axum::error_handling::HandleErrorLayer;
 use axum::http::Uri;
-use axum::{
-    body::Body,
-    extract::{ConnectInfo, State},
-    http::{HeaderName, Request, StatusCode},
-    middleware::Next,
-    response::{IntoResponse, Response},
-};
-use axum_oidc::error::MiddlewareError;
 use axum_oidc::{EmptyAdditionalClaims, OidcAuthLayer};
-use log::warn;
-use serde::{Deserialize, Serialize};
-use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
-use tower::ServiceBuilder;
 
 use crate::errors::CliError;
-
-use super::auth::AuthenticationMethod;
 
 /// Config for OIDC
 #[derive(Clone, Debug)]
@@ -29,64 +14,135 @@ pub struct OidcConfig {
     pub client_secret: Option<String>,
 }
 
+#[derive(Clone, Debug)]
+pub struct ValidOidcConfig {
+    pub net_host: Uri,
+    pub issuer: String,
+    pub client_id: String,
+    pub client_secret: Option<String>,
+}
+
 impl OidcConfig {
-    #[allow(dead_code)]
-    pub fn disabled() -> Self {
-        Self {
-            enabled: false,
-            net_host: None,
-            issuer: None,
-            client_id: None,
-            client_secret: None,
-        }
-    }
-
-    pub fn validate(&self) -> Result<(), CliError> {
+    /// If enabled, parse/validate and return a ready-to-use config.
+    /// If disabled, return Ok(None).
+    pub fn validate(&self) -> Result<Option<ValidOidcConfig>, CliError> {
         if !self.enabled {
-            return Ok(());
+            return Ok(None);
         }
 
-        let issuer = self.issuer.as_deref().unwrap_or("").trim();
-        let client_id = self.client_id.as_deref().unwrap_or("").trim();
-        let net_host = self.net_host.as_deref().unwrap_or("").trim();
+        let net_host_str = self
+            .net_host
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| {
+                CliError::InvalidArgs("Missing --net-host (required for oidc)".to_string())
+            })?;
 
-        if issuer.is_empty() {
-            return Err(CliError::InvalidArgs("Missing oidc_issuer".to_string()));
-        }
-        if client_id.is_empty() {
-            return Err(CliError::InvalidArgs("Missing oidc_client_id".to_string()));
-        }
-        if net_host.is_empty() {
-            return Err(CliError::InvalidArgs("Missing net_host".to_string()));
-        }
+        let net_host = Uri::from_str(net_host_str).map_err(|e| {
+            CliError::InvalidArgs(format!("Invalid net_host URI '{net_host_str}': {e}"))
+        })?;
 
-        // client_secret can be optional for public clients, so don't require it.
-        Ok(())
+        let issuer_raw = self
+            .issuer
+            .as_deref()
+            .ok_or_else(|| CliError::InvalidArgs("Missing --auth-oidc-issuer".to_string()))?;
+        let issuer = normalize_oidc_issuer(issuer_raw)?;
+
+        let client_id = self
+            .client_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| CliError::InvalidArgs("Missing --auth-oidc-client-id".to_string()))?
+            .to_string();
+
+        let client_secret = self
+            .client_secret
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+
+        Ok(Some(ValidOidcConfig {
+            net_host,
+            issuer,
+            client_id,
+            client_secret,
+        }))
     }
 }
 
+fn normalize_oidc_issuer(raw: &str) -> Result<String, CliError> {
+    let mut s = raw.trim().to_string();
+    if s.is_empty() {
+        return Err(CliError::InvalidArgs("Missing oidc_issuer".to_string()));
+    }
+
+    // If user omitted scheme, assume https://
+    if !s.contains("://") {
+        s = format!("https://{s}");
+    }
+
+    // If user gave http://, normalize to https://
+    if let Some(rest) = s.strip_prefix("http://") {
+        s = format!("https://{rest}");
+    }
+
+    // Validate it's a plausible absolute URI with scheme + authority
+    let uri: axum::http::Uri = s
+        .parse()
+        .map_err(|e| CliError::InvalidArgs(format!("Invalid oidc_issuer '{raw}': {e}")))?;
+
+    let scheme = uri.scheme_str().ok_or_else(|| {
+        CliError::InvalidArgs(format!("Invalid oidc_issuer '{raw}': missing scheme"))
+    })?;
+
+    if scheme != "https" {
+        return Err(CliError::InvalidArgs(format!(
+            "Invalid oidc_issuer '{raw}': scheme must be https"
+        )));
+    }
+
+    if uri.authority().is_none() {
+        return Err(CliError::InvalidArgs(format!(
+            "Invalid oidc_issuer '{raw}': missing host"
+        )));
+    }
+
+    // Ensure exactly one trailing slash
+    while s.ends_with('/') {
+        s.pop();
+    }
+    s.push('/');
+
+    Ok(s)
+}
+
+/// Build the OIDC auth layer.
+///
+/// Invariant:
+/// - cfg.enabled == false => Ok(None)
+/// - cfg.enabled == true  => Ok(Some(layer)) OR Err(CliError)
 pub async fn build_oidc_auth_layer(
     cfg: &OidcConfig,
-) -> Result<OidcAuthLayer<EmptyAdditionalClaims>, anyhow::Error> {
-    let net_host = Uri::from_str(
-        cfg.net_host
-            .clone()
-            .expect("oidc needs valid net_host")
-            .as_str(),
-    )
-    .expect("oidc needs valid uri");
-    let issuer = cfg.issuer.clone().expect("validated");
-    let client_id = cfg.client_id.clone().expect("validated");
-    let client_secret = cfg.client_secret.clone();
+) -> Result<Option<OidcAuthLayer<EmptyAdditionalClaims>>, CliError> {
+    let v = match cfg.validate()? {
+        Some(v) => v,
+        None => return Ok(None), // only possible when enabled == false
+    };
 
     let scopes = vec!["profile".to_string(), "email".to_string()];
 
-    Ok(OidcAuthLayer::<EmptyAdditionalClaims>::discover_client(
-        net_host,
-        issuer,
-        client_id,
-        client_secret,
+    let layer = OidcAuthLayer::<EmptyAdditionalClaims>::discover_client(
+        v.net_host,
+        v.issuer,
+        v.client_id,
+        v.client_secret,
         scopes,
     )
-    .await?)
+    .await
+    .map_err(|e| CliError::RuntimeError(format!("OIDC discovery failed: {e:#}")))?;
+
+    Ok(Some(layer))
 }
