@@ -166,11 +166,12 @@ pub async fn atomic_write_file_0600(path: &std::path::Path, contents: &[u8]) -> 
 
         // Refuse to overwrite a symlink at destination (paranoia).
         if let Ok(meta) = tokio::fs::symlink_metadata(path).await
-            && meta.file_type().is_symlink() {
-                // Best-effort cleanup.
-                let _ = tokio::fs::remove_file(&tmp).await;
-                bail!("refusing to overwrite symlink '{}'", path.display());
-            }
+            && meta.file_type().is_symlink()
+        {
+            // Best-effort cleanup.
+            let _ = tokio::fs::remove_file(&tmp).await;
+            bail!("refusing to overwrite symlink '{}'", path.display());
+        }
 
         // Atomic replacement.
         tokio::fs::rename(&tmp, path).await.with_context(|| {

@@ -3,7 +3,6 @@ use std::path::Path;
 use conf::Conf;
 use serde::{Deserialize, Serialize};
 
-
 #[derive(Conf, Debug, Clone, Serialize, Deserialize)]
 #[conf(serde)]
 pub struct DatabaseConfig {

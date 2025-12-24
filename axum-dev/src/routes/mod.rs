@@ -1,7 +1,13 @@
 use aide::{axum::ApiRouter, openapi::OpenApi};
-use axum::{Extension, Router, http::StatusCode, middleware, routing::get};
+use axum::response::IntoResponse;
+use axum::{
+    Extension, Router, error_handling::HandleErrorLayer, http::StatusCode, middleware, routing::get,
+};
+use axum_oidc::{EmptyAdditionalClaims, OidcAuthLayer, OidcLoginLayer, error::MiddlewareError};
 use std::sync::Arc;
+use tower::ServiceBuilder;
 use tower_http::{services::ServeDir, trace::TraceLayer};
+use tracing::warn;
 
 use crate::{
     AppState,
@@ -21,17 +27,19 @@ pub mod user;
 pub mod whoami;
 
 pub fn router(
-    hdr_auth_cfg: trusted_header_auth::ForwardAuthConfig,
-    fwd_for_cfg: trusted_forwarded_for::TrustedForwardedForConfig,
+    forward_auth_cfg: trusted_header_auth::ForwardAuthConfig,
+    forwarded_for_cfg: trusted_forwarded_for::TrustedForwardedForConfig,
     oidc_cfg: oidc::OidcConfig,
+    oidc_auth_layer: Option<OidcAuthLayer<EmptyAdditionalClaims>>,
     state: AppState,
-) -> Router<AppState> {
+) -> axum::Router<AppState> {
+    // build your ApiRouter pieces as you already do...
     let user_api = ApiRouter::<AppState>::new()
         .nest("/api", api::router())
         .layer(middleware::from_fn(csrf_protection::csrf_middleware));
 
-    let login_api =
-        login::router(hdr_auth_cfg).layer(middleware::from_fn(csrf_protection::csrf_middleware));
+    let login_api = login::router(forward_auth_cfg)
+        .layer(middleware::from_fn(csrf_protection::csrf_middleware));
 
     let admin_api = ApiRouter::<AppState>::new()
         .nest("/admin", admin::router())
@@ -43,27 +51,42 @@ pub fn router(
 
     let mut api_spec = OpenApi::default();
 
-    ApiRouter::<AppState>::new()
-        // Add all API routes:
+    // Finish the ApiRouter FIRST (so aide can collect OpenAPI info)
+    let api_router: ApiRouter<AppState> = ApiRouter::<AppState>::new()
         .merge(user_api)
         .merge(login_api)
-        // Mount docs (stateless ApiRouter<()>)
         .nest_api_service("/docs", docs_routes())
-        // Admin route
         .merge(admin_api)
-        // Apply shared OpenAPI configuration:
         .finish_api_with(&mut api_spec, configure_openapi)
         .layer(Extension(Arc::new(api_spec)))
-        // Add non-API routes:
         .nest_service("/static", ServeDir::new("static"))
         .route("/favicon.ico", get(favicon))
-        // Add global middleware:
-        .layer(middleware::from_fn(user_session_middleware))
+        .into();
+
+    // Convert to axum::Router so we can add fallible layers (OIDC)
+    let mut app: axum::Router<AppState> = api_router.into();
+
+    if oidc_cfg.enabled {
+        let oidc_auth_layer =
+            oidc_auth_layer.expect("oidc_cfg.enabled == true but oidc_auth_layer is None");
+
+        app = app.layer(
+            ServiceBuilder::new()
+                // OUTER: catches MiddlewareError from inner layers and returns a Response
+                .layer(HandleErrorLayer::<_, ()>::new(
+                    |e: MiddlewareError| async move { e.into_response() },
+                ))
+                // INNER: may produce MiddlewareError
+                .layer(oidc_auth_layer),
+        );
+    }
+
+    // Global middleware (these are fine on Router too)
+    app.layer(middleware::from_fn(user_session_middleware))
         .layer(middleware::from_fn_with_state(
-            fwd_for_cfg,
+            forwarded_for_cfg,
             trusted_forwarded_for::trusted_forwarded_for,
         ))
-        // Add frontend fallback:
         .route("/", get(crate::frontend::spa_handler))
         .route("/{*path}", get(crate::frontend::spa_handler))
         .layer(TraceLayer::new_for_http())

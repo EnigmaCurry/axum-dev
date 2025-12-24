@@ -176,10 +176,11 @@ where
 
         // -v=3
         if let Some(rest_num) = s.strip_prefix("-v=")
-            && let Ok(n) = rest_num.parse::<u8>() {
-                explicit = Some(n);
-                continue;
-            }
+            && let Ok(n) = rest_num.parse::<u8>()
+        {
+            explicit = Some(n);
+            continue;
+        }
 
         // otherwise keep arg
         rest.push(arg);

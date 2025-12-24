@@ -27,7 +27,7 @@ pub fn router(user_cfg: trusted_header_auth::ForwardAuthConfig) -> ApiRouter<App
     match user_cfg.method {
         AuthenticationMethod::ForwardAuth => trusted_header_router(user_cfg),
         AuthenticationMethod::UsernamePassword => username_password_router(),
-        AuthenticationMethod::OIDC => oidc_router(),
+        AuthenticationMethod::Oidc => oidc_router(),
     }
 }
 

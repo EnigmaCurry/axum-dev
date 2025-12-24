@@ -1,18 +1,20 @@
 use std::{
     net::{IpAddr, SocketAddr},
     path::{Path, PathBuf},
+    str::FromStr,
 };
 
 use crate::{
     config::{AppConfig, TlsAcmeChallenge, TlsMode, database::build_db_url},
     ensure_root_dir,
     errors::CliError,
-    middleware::{self, auth::AuthenticationMethod},
+    middleware::{self, auth::AuthenticationMethod, oidc::build_oidc_auth_layer},
     server,
     util::write_files::create_private_dir_all_0700_sync,
 };
 use anyhow::Context;
-use axum::http::HeaderName;
+use axum::http::{HeaderName, Uri};
+use axum_oidc::{EmptyAdditionalClaims, OidcAuthLayer};
 use tracing::{debug, error, info};
 
 static TLS_CACHE_DIR: &str = "tls-cache";
@@ -51,7 +53,7 @@ fn plan_serve(cfg: &AppConfig, root_dir: &Path) -> Result<ServePlan, CliError> {
 pub fn serve(cfg: AppConfig, root_dir: PathBuf) -> Result<(), CliError> {
     let root_dir = ensure_root_dir(root_dir)?;
 
-    let plan = plan_serve(&cfg, &root_dir)?;
+    let plan = plan_serve(&cfg, &root_dir).expect("plan");
 
     debug!(?cfg, "serve(): parsed cfg");
     info!("Server will listen on {}", plan.addr);
@@ -267,7 +269,7 @@ fn build_auth_cfgs(
         AuthenticationMethod::UsernamePassword => {
             info!("Authentication method: username_password");
         }
-        AuthenticationMethod::OIDC => {
+        AuthenticationMethod::Oidc => {
             info!("Authentication method: oidc");
         }
     }
@@ -287,6 +289,8 @@ fn build_auth_cfgs(
     }
 
     let oidc_cfg = middleware::oidc::OidcConfig {
+        enabled: cfg.auth.method == AuthenticationMethod::Oidc,
+        net_host: cfg.network.host.clone(),
         issuer: cfg.auth.oidc_issuer.clone(),
         client_id: cfg.auth.oidc_client_id.clone(),
         client_secret: cfg.auth.oidc_client_secret.clone(),

@@ -7,7 +7,7 @@ pub enum AuthenticationMethod {
     #[default]
     UsernamePassword,
     ForwardAuth,
-    OIDC,
+    Oidc,
 }
 
 impl fmt::Display for AuthenticationMethod {
@@ -15,7 +15,7 @@ impl fmt::Display for AuthenticationMethod {
         let s = match self {
             AuthenticationMethod::UsernamePassword => "username_password",
             AuthenticationMethod::ForwardAuth => "forward_auth",
-            AuthenticationMethod::OIDC => "oidc",
+            AuthenticationMethod::Oidc => "oidc",
         };
         write!(f, "{s}")
     }
@@ -28,9 +28,9 @@ impl FromStr for AuthenticationMethod {
         match s {
             "username_password" => Ok(AuthenticationMethod::UsernamePassword),
             "forward_auth" => Ok(AuthenticationMethod::ForwardAuth),
-            "oidc" => Ok(AuthenticationMethod::OIDC),
+            "oidc" => Ok(AuthenticationMethod::Oidc),
             other => Err(format!(
-                "invalid auth method '{other}', expected one of: username_password, forward_auth"
+                "invalid auth method '{other}', expected one of: username_password, forward_auth, oidc"
             )),
         }
     }

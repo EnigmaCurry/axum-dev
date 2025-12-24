@@ -1,6 +1,7 @@
 use crate::{
     middleware::{
-        oidc::OidcConfig, trusted_forwarded_for::TrustedForwardedForConfig,
+        oidc::{OidcConfig, build_oidc_auth_layer},
+        trusted_forwarded_for::TrustedForwardedForConfig,
         trusted_header_auth::ForwardAuthConfig,
     },
     prelude::*,
@@ -15,6 +16,7 @@ use crate::{
     util::write_files::{atomic_write_file_0600, create_private_dir_all_0700},
 };
 use anyhow::Context;
+use axum::http::Uri;
 use axum_server::{Handle, tls_rustls::RustlsConfig};
 use futures_util::StreamExt;
 use rustls::ServerConfig as RustlsServerConfig;
@@ -101,12 +103,20 @@ pub async fn run(
     .await?;
     let deletion_abort = deletion_task.abort_handle();
 
+    // inside async fn server::run(...)
+    let oidc_auth_layer = if oidc_cfg.enabled {
+        Some(build_oidc_auth_layer(&oidc_cfg).await?)
+    } else {
+        None
+    };
+
     // Shared state + router
     let state = AppState { db };
     let app = build_app(
         forward_auth_cfg,
         forward_for_cfg,
         oidc_cfg,
+        oidc_auth_layer,
         state,
         session_layer,
     );
@@ -260,12 +270,20 @@ fn build_app(
     forward_auth_cfg: ForwardAuthConfig,
     forward_for_cfg: TrustedForwardedForConfig,
     oidc_cfg: OidcConfig,
+    oidc_auth_layer: Option<axum_oidc::OidcAuthLayer<axum_oidc::EmptyAdditionalClaims>>,
     state: AppState,
     session_layer: SessionManagerLayer<SqliteStore>,
 ) -> axum::Router {
-    router(forward_auth_cfg, forward_for_cfg, oidc_cfg, state.clone())
-        .layer(session_layer)
-        .with_state(state)
+    router(
+        forward_auth_cfg,
+        forward_for_cfg,
+        oidc_cfg,
+        oidc_auth_layer,
+        state.clone(),
+    )
+    .layer(session_layer)
+    .with_state(state)
+    .into()
 }
 
 async fn serve_http(

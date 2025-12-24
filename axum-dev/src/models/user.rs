@@ -2,8 +2,8 @@ use crate::models::ids::{IdentityProviderId, SignupMethodId, UserId};
 use crate::models::user_status::UserStatus;
 use bcrypt::verify as bcrypt_verify;
 use serde::{Deserialize, Serialize};
-use sqlx::types::chrono::NaiveDateTime;
 use sqlx::Row;
+use sqlx::types::chrono::NaiveDateTime;
 use sqlx::{Error, FromRow, SqlitePool};
 
 #[derive(Debug, Clone, FromRow)]
