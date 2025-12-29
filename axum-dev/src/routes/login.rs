@@ -1,5 +1,6 @@
 use crate::errors::AppError;
 use crate::middleware::auth::AuthenticationMethod;
+use crate::models::identity_provider::IdentityProviders;
 use crate::models::user_status::UserStatus;
 use crate::response::{ApiJson, ApiResponse, json_empty_ok, json_error};
 use crate::{
@@ -10,17 +11,23 @@ use crate::{
     prelude::*,
     server::AppState,
 };
-
+use aide::axum::IntoApiResponse;
 use aide::{NoApi, axum::ApiRouter};
 use api_doc_macros::{api_doc, post_with_docs};
+use axum::error_handling::HandleErrorLayer;
+use axum::routing::{get, post};
 use axum::{
     Json,
-    extract::{Extension, State},
+    extract::{Extension, Query, State},
     http::StatusCode,
     middleware,
+    response::{IntoResponse, Redirect},
 };
+use axum_oidc::error::MiddlewareError;
+use axum_oidc::{EmptyAdditionalClaims, OidcClaims, OidcLoginLayer};
 use schemars::JsonSchema;
 use serde::Deserialize;
+use tower::ServiceBuilder;
 use tower_sessions::Session;
 
 pub fn router(user_cfg: trusted_header_auth::ForwardAuthConfig) -> ApiRouter<AppState> {
@@ -62,9 +69,18 @@ fn username_password_router() -> ApiRouter<AppState> {
 }
 
 fn oidc_router() -> ApiRouter<AppState> {
+    let oidc_login_service = ServiceBuilder::new()
+        .layer(HandleErrorLayer::new(|e: MiddlewareError| async {
+            dbg!(&e);
+            e.into_response()
+        }))
+        .layer(OidcLoginLayer::<EmptyAdditionalClaims>::new());
+
     ApiRouter::<AppState>::new()
-        //        .api_route("/api/login", post_with_docs!(oidc_login_handler))
+        .route("/api/login", get(oidc_login_handler))
+        .route("/api/login", post(oidc_login_handler))
         .api_route("/api/logout", post_with_docs!(logout_handler))
+        .layer(oidc_login_service)
 }
 
 #[api_doc(
@@ -86,7 +102,13 @@ async fn forward_auth_login_handler(
     let external_id = trusted_user.external_id.clone();
     tracing::debug!("POST /api/login (forward auth) external_id = {external_id}");
 
-    let user = match user::get_or_create_by_external_id(&state.db, &external_id).await {
+    let user = match user::get_or_create_by_external_id(
+        &state.db,
+        &external_id,
+        IdentityProviders::ForwardAuth,
+    )
+    .await
+    {
         Ok(user) => user,
         Err(err) => {
             tracing::error!(
@@ -206,4 +228,54 @@ async fn logout_handler(
     }
 
     json_empty_ok()
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct LoginQuery {
+    next: Option<String>,
+}
+
+fn safe_next(next: Option<String>) -> &'static str {
+    // Minimal safe default; you can implement proper “relative-path only” validation.
+    // Avoid open redirects.
+    match next.as_deref() {
+        Some(p) if p.starts_with('/') && !p.starts_with("//") => "/",
+        _ => "/",
+    }
+}
+
+pub async fn oidc_login_handler(
+    State(state): State<AppState>,
+    mut user_session: UserSession,
+    session: Session,
+    Query(q): Query<LoginQuery>,
+    claims: OidcClaims<EmptyAdditionalClaims>,
+) -> impl IntoApiResponse {
+    if let Some(external_id) = claims.email() {
+        debug!("Logging in external OIDC user: {external_id:?}");
+        let user = match user::get_or_create_by_external_id(
+            &state.db,
+            &external_id,
+            IdentityProviders::Oidc,
+        )
+        .await
+        {
+            Ok(user) => user,
+            Err(err) => {
+                tracing::error!("oidc_login_handler get_or_create_by_external_id: {err}");
+                return (StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
+                    .into_response();
+            }
+        };
+
+        if let Err(err) = finish_login_for_user(user, &mut user_session, &session).await {
+            return map_login_error(err).into_response();
+        }
+        Redirect::to(safe_next(q.next)).into_response()
+    } else {
+        tracing::error!(
+            "oidc_login_handler get_or_create_by_external_id: User did not have an external_id"
+        );
+        return (StatusCode::INTERNAL_SERVER_ERROR, "internal server error").into_response();
+    }
 }

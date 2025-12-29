@@ -1,56 +1,64 @@
-use crate::models::{
-    ids::UserId,
-    user::{self, insert_user},
+use crate::{
+    errors::ErrorBody,
+    models::user::{self},
+    response::{ApiJson, ApiResponse, json_error, json_ok},
 };
-use aide::axum::ApiRouter;
+use aide::{NoApi, axum::ApiRouter};
+use api_doc_macros::{api_doc, get_with_docs};
 use axum::{
     Json,
     extract::{Path, State},
     http::StatusCode,
-    routing::{get, post},
 };
+use axum_oidc::{EmptyAdditionalClaims, OidcClaims};
+use schemars::JsonSchema;
+use serde::Serialize;
 
-use crate::models::user::{CreateUser, PublicUser};
+use crate::models::user::PublicUser;
 use crate::prelude::*;
 
 pub fn router() -> ApiRouter<AppState> {
-    ApiRouter::<AppState>::new()
-        .route("/", post(create_user))
-        .route("/{user_id}", get(get_user))
+    ApiRouter::<AppState>::new().api_route("/{user_id}", get_with_docs!(get_user))
 }
 
-pub async fn create_user(
-    State(state): State<AppState>,
-    Json(payload): Json<CreateUser>,
-) -> Result<(StatusCode, Json<PublicUser>), (StatusCode, String)> {
-    let user = insert_user(&state.db, payload).await.map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("database insert error: {e}"),
-        )
-    })?;
-
-    Ok((StatusCode::CREATED, Json(user.into())))
+/// The shape of the JSON we send back from User API.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct UserResponse {
+    user: PublicUser,
 }
 
+#[api_doc(
+    id = "user",
+    tag = "user",
+    ok = "Json<ApiResponse<UserResponse>>",
+    err = "Json<ErrorBody>"
+)]
 pub async fn get_user(
     State(state): State<AppState>,
-    Path(user_id): Path<UserId>,
-) -> Result<(StatusCode, Json<PublicUser>), (StatusCode, String)> {
-    let maybe_user = user::select_user(&state.db, user_id.clone())
+    Path(username): Path<String>,
+    NoApi(_claims): NoApi<OidcClaims<EmptyAdditionalClaims>>,
+) -> ApiJson<UserResponse> {
+    let maybe_user = user::select_user_by_username(&state.db, &username)
         .await
         .map_err(|e| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("database query error: {e}"),
             )
-        })?;
+        })
+        .unwrap();
 
     match maybe_user {
-        Some(user) => Ok((StatusCode::OK, Json(user.into()))),
-        None => Err((
-            StatusCode::NOT_FOUND,
-            format!("user with id {user_id:?} not found"),
-        )),
+        Some(user) => {
+            let username = user.username.unwrap_or("".to_string());
+            if username.is_empty() {
+                json_error(StatusCode::INTERNAL_SERVER_ERROR, "database error")
+            } else {
+                json_ok(UserResponse {
+                    user: PublicUser { username },
+                })
+            }
+        }
+        None => json_error(StatusCode::NOT_FOUND, "user not found"),
     }
 }

@@ -34,7 +34,7 @@ pub fn router(
     state: AppState,
 ) -> axum::Router<AppState> {
     // build your ApiRouter pieces as you already do...
-    let user_api = ApiRouter::<AppState>::new()
+    let public_api = ApiRouter::<AppState>::new()
         .nest("/api", api::router())
         .layer(middleware::from_fn(csrf_protection::csrf_middleware));
 
@@ -53,7 +53,7 @@ pub fn router(
 
     // Finish the ApiRouter FIRST (so aide can collect OpenAPI info)
     let api_router: ApiRouter<AppState> = ApiRouter::<AppState>::new()
-        .merge(user_api)
+        .merge(public_api)
         .merge(login_api)
         .nest_api_service("/docs", docs_routes())
         .merge(admin_api)

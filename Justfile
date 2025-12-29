@@ -308,6 +308,7 @@ serve-docker-plain: _env_check build-docker
 # Apply database migrations in local database
 migrate: _env_check
     cd {{PROJECT_DIR}} && \
+    export DATABASE_URL="sqlite://{{DATABASE_PATH}}" && \
     sqlx database create && \
     sqlx migrate run
 
@@ -320,7 +321,7 @@ sql-docker:
     ${DOCKER} exec -it {{APP}} sqlite3 /data/data.db
 
 destroy:
-    rm -f {{PROJECT_DIR}}/{{DATABASE_PATH}}
+    rm -f {{DATABASE_PATH}}
 
 destroy-docker:
     docker rm -fv {{APP}}

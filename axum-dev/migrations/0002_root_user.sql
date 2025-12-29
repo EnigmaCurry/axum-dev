@@ -12,7 +12,7 @@ INSERT INTO [user] (
 )
 VALUES (
     1,
-    (SELECT id FROM identity_provider WHERE name = 'system'),
+    (SELECT id FROM identity_provider WHERE name = 'System'),
     'root',                        -- external_id
     'root',                        -- username
     1,                             -- is_registered

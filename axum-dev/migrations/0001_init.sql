@@ -7,11 +7,12 @@ CREATE TABLE identity_provider (
     -- you can add is_default INTEGER DEFAULT 0 CHECK (is_default IN (0,1)) if you like
 );
 
-INSERT INTO identity_provider (name, display_name)
+-- match ids from enum models::identity_provider::IdentityProviders
+INSERT INTO identity_provider (id, name, display_name)
 VALUES
-    ('system','System User'),
-    ('traefik-forwardauth', 'Traefik ForwardAuth');
-
+    (1, 'System','System User'),
+    (2, 'ForwardAuth', 'Traefik ForwardAuth'),
+    (3, 'Oidc', 'OpenID Connect');
 
 -- signup methods
 
@@ -52,7 +53,7 @@ CREATE TABLE [user] (
         (is_registered = 1 AND username IS NOT NULL)
     ),
 
-    UNIQUE(identity_provider_id, external_id),
+    UNIQUE(external_id),
     UNIQUE(username)
 );
 

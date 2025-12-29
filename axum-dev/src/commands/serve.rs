@@ -290,7 +290,7 @@ fn build_auth_cfgs(
 
     let oidc_cfg = middleware::oidc::OidcConfig {
         enabled: cfg.auth.method == AuthenticationMethod::Oidc,
-        net_host: cfg.network.host.clone(),
+        host_port: build_host_port(&cfg.network.host, cfg.network.listen_port),
         issuer: cfg.auth.oidc_issuer.clone(),
         client_id: cfg.auth.oidc_client_id.clone(),
         client_secret: cfg.auth.oidc_client_secret.clone(),
@@ -309,6 +309,68 @@ fn create_runtime() -> Result<tokio::runtime::Runtime, CliError> {
         error!("Failed to create Tokio runtime: {e}");
         CliError::RuntimeError(format!("Failed to start Tokio runtime: {e}"))
     })
+}
+
+fn strip_scheme_and_path(mut s: &str) -> &str {
+    // If it looks like a URL, drop scheme://
+    if let Some(rest) = s.strip_prefix("http://") {
+        s = rest;
+    } else if let Some(rest) = s.strip_prefix("https://") {
+        s = rest;
+    }
+
+    // Drop any path/query/fragment
+    if let Some(i) = s.find(['/', '?', '#']) {
+        s = &s[..i];
+    }
+
+    s
+}
+
+fn build_host_port(host: &Option<String>, port: u16) -> Option<String> {
+    let raw = host.as_deref().unwrap_or("localhost");
+    let raw = raw.trim();
+    if raw.is_empty() {
+        return Some(format!("localhost:{port}"));
+    }
+
+    // Normalize to "authority-ish" (no scheme, no path)
+    let authority = strip_scheme_and_path(raw);
+
+    // If already bracketed IPv6 like "[::1]" or "[::1]:1234"
+    if authority.starts_with('[') {
+        // If it already has a port ("]:<digits>"), keep host part and override port.
+        // Find closing bracket
+        if let Some(end) = authority.find(']') {
+            let host_part = &authority[..=end]; // includes closing ]
+            return Some(format!("{host_part}:{port}"));
+        }
+        // Malformed bracket, fall back
+        return Some(format!("localhost:{port}"));
+    }
+
+    // If it contains ':' now, it might be:
+    // - IPv6 literal like "::1"  (needs brackets)
+    // - host:port like "localhost:3000" (NOT IPv6)
+    //
+    // Heuristic:
+    // - If it has 2+ colons, it's IPv6 -> bracket it.
+    // - If it has exactly 1 colon, assume host:port -> take host part and override port.
+    let colon_count = authority.matches(':').count();
+
+    if colon_count >= 2 {
+        // IPv6 literal
+        return Some(format!("[{authority}]:{port}"));
+    }
+
+    if colon_count == 1 {
+        // Probably "host:port" (domain names do not legally contain ':')
+        let host_only = authority.split(':').next().unwrap_or(authority);
+        return Some(format!("{host_only}:{port}"));
+    }
+
+    // Plain hostname / IPv4
+    Some(format!("{authority}:{port}"))
 }
 
 #[test]

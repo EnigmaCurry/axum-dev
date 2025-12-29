@@ -1,6 +1,9 @@
-use axum::http::Uri;
-use axum_oidc::{EmptyAdditionalClaims, OidcAuthLayer};
+use axum::{error_handling::HandleErrorLayer, http::Uri};
+use axum_oidc::{EmptyAdditionalClaims, OidcAuthLayer, OidcLoginLayer, error::MiddlewareError};
 use std::str::FromStr;
+use tower::{ServiceBuilder, layer::util::Stack};
+
+use axum::response::IntoResponse;
 
 use crate::errors::CliError;
 
@@ -8,7 +11,7 @@ use crate::errors::CliError;
 #[derive(Clone, Debug)]
 pub struct OidcConfig {
     pub enabled: bool,
-    pub net_host: Option<String>,
+    pub host_port: Option<String>,
     pub issuer: Option<String>,
     pub client_id: Option<String>,
     pub client_secret: Option<String>,
@@ -30,16 +33,17 @@ impl OidcConfig {
             return Ok(None);
         }
 
-        let net_host_str = self
-            .net_host
-            .as_deref()
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .ok_or_else(|| {
-                CliError::InvalidArgs("Missing --net-host (required for oidc)".to_string())
-            })?;
+        let net_host_str = "https://".to_string()
+            + self
+                .host_port
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| {
+                    CliError::InvalidArgs("Missing --net-host (required for oidc)".to_string())
+                })?;
 
-        let net_host = Uri::from_str(net_host_str).map_err(|e| {
+        let net_host = Uri::from_str(&net_host_str).map_err(|e| {
             CliError::InvalidArgs(format!("Invalid net_host URI '{net_host_str}': {e}"))
         })?;
 
@@ -119,11 +123,6 @@ fn normalize_oidc_issuer(raw: &str) -> Result<String, CliError> {
     Ok(s)
 }
 
-/// Build the OIDC auth layer.
-///
-/// Invariant:
-/// - cfg.enabled == false => Ok(None)
-/// - cfg.enabled == true  => Ok(Some(layer)) OR Err(CliError)
 pub async fn build_oidc_auth_layer(
     cfg: &OidcConfig,
 ) -> Result<Option<OidcAuthLayer<EmptyAdditionalClaims>>, CliError> {

@@ -1,10 +1,14 @@
 use crate::models::ids::{IdentityProviderId, SignupMethodId, UserId};
 use crate::models::user_status::UserStatus;
 use bcrypt::verify as bcrypt_verify;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
 use sqlx::types::chrono::NaiveDateTime;
 use sqlx::{Error, FromRow, SqlitePool};
+use tracing::{debug, info};
+
+use super::identity_provider::{self, IdentityProviders};
 
 #[derive(Debug, Clone, FromRow)]
 pub struct User {
@@ -64,17 +68,15 @@ pub struct CreateUser {
     pub username: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, JsonSchema)]
 pub struct PublicUser {
-    pub id: UserId,
-    pub username: Option<String>,
+    pub username: String,
 }
 
 impl From<User> for PublicUser {
     fn from(u: User) -> Self {
         Self {
-            id: u.id,
-            username: u.username,
+            username: u.username.unwrap_or("".to_string()),
         }
     }
 }
@@ -90,7 +92,7 @@ pub async fn insert_user(pool: &SqlitePool, new_user: CreateUser) -> sqlx::Resul
             is_registered,
             status
         )
-        VALUES (?2, ?3, ?4, ?5, 0, 'active')
+        VALUES (?1, ?2, ?3, 0, 'active')
         RETURNING
             id,
             identity_provider_id,
@@ -214,7 +216,19 @@ async fn forwardauth_identity_provider_id(pool: &SqlitePool) -> Result<IdentityP
         .map(|row: sqlx::sqlite::SqliteRow| row.get::<i64, _>("id"))
         .fetch_one(pool)
         .await?;
+    debug!(raw_id);
+    Ok(IdentityProviderId(raw_id))
+}
 
+async fn select_identity_provider_by_name(
+    pool: &SqlitePool,
+    identity_provider: IdentityProviders,
+) -> Result<IdentityProviderId, Error> {
+    let raw_id: i64 = sqlx::query(r#"SELECT id FROM identity_provider WHERE name = ?1"#)
+        .bind(format!("{:?}", identity_provider))
+        .map(|row: sqlx::sqlite::SqliteRow| row.get::<i64, _>("id"))
+        .fetch_one(pool)
+        .await?;
     Ok(IdentityProviderId(raw_id))
 }
 
@@ -224,14 +238,18 @@ async fn forwardauth_identity_provider_id(pool: &SqlitePool) -> Result<IdentityP
 pub async fn get_or_create_by_external_id(
     pool: &SqlitePool,
     external_id: &str,
+    system_identity_provider: IdentityProviders,
 ) -> Result<User, Error> {
     // Try to find an existing user first.
     if let Some(user) = select_user_by_external_id(pool, external_id).await? {
+        debug!("Found existing user: {user:?}");
         return Ok(user);
     }
 
     // No existing user – create one.
-    let identity_provider_id = forwardauth_identity_provider_id(pool).await?;
+    info!("Creating user from external id: {external_id:?}");
+    let identity_provider_id =
+        select_identity_provider_by_name(pool, system_identity_provider).await?;
 
     let new_user = CreateUser {
         identity_provider_id,

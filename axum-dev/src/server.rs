@@ -29,6 +29,7 @@ use tower_sessions::{
     session_store::ExpiredDeletion,
 };
 use tower_sessions_sqlx_store::SqliteStore;
+use tracing::warn;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -207,7 +208,7 @@ fn log_startup(db_url: &str) -> anyhow::Result<()> {
 
 async fn init_db(db_url: &str) -> anyhow::Result<SqlitePool> {
     use std::str::FromStr;
-
+    warn!("foo");
     let connect_opts = SqliteConnectOptions::from_str(db_url)?
         .create_if_missing(true)
         .foreign_keys(true)
