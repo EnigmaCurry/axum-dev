@@ -22,6 +22,8 @@ TEMPLATE_URL="git@github.com:EnigmaCurry/rust-axum-template.git"
 TEMPLATE_REPO="$(realpath ../rust-axum-template)"
 PROJECT_SRC_DIR="${PROJECT_DIR}/${DEV_APP_NAME}/src"
 TEMPLATE_SRC_DIR="${TEMPLATE_REPO}/template/PROJECT/src"
+FRONTEND_SRC_DIR="${PROJECT_DIR}/frontend"
+
 if [[ ! -d "${TEMPLATE_REPO}" ]]; then
     fault "Could not find template repo"
 fi
@@ -51,6 +53,7 @@ rm -rf "${TEMPLATE_SRC_DIR}"
 cp -a "${PROJECT_SRC_DIR}" "${TEMPLATE_SRC_DIR}"
 rm -rf "${TEMPLATE_REPO}/_scripts"
 cp -a "${PROJECT_DIR}/_scripts" "${TEMPLATE_REPO}/_scripts"
+cp -a "${FRONTEND_SRC_DIR}" "${TEMPLATE_REPO}/frontend"
 rm -rf "${TEMPLATE_REPO}/template/.github/workflows"/*
 
 sed_escape() {
