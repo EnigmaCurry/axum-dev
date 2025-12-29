@@ -23,6 +23,8 @@ TEMPLATE_REPO="$(realpath ../rust-axum-template)"
 PROJECT_SRC_DIR="${PROJECT_DIR}/${DEV_APP_NAME}/src"
 TEMPLATE_SRC_DIR="${TEMPLATE_REPO}/template/PROJECT/src"
 FRONTEND_SRC_DIR="${PROJECT_DIR}/frontend"
+MIGRATIONS_DIR="${PROJECT_DIR}/${DEV_APP_NAME}/migrations"
+TEST_DATA_DIR="${PROJECT_DIR}/${DEV_APP_NAME}/test_data"
 
 if [[ ! -d "${TEMPLATE_REPO}" ]]; then
     fault "Could not find template repo"
@@ -54,6 +56,8 @@ cp -a "${PROJECT_SRC_DIR}" "${TEMPLATE_SRC_DIR}"
 rm -rf "${TEMPLATE_REPO}/_scripts"
 cp -a "${PROJECT_DIR}/_scripts" "${TEMPLATE_REPO}/_scripts"
 cp -a "${FRONTEND_SRC_DIR}" "${TEMPLATE_REPO}/"
+cp -a "${MIGRATIONS_DIR}" "${TEMPLATE_REPO}/PROJECT"
+cp -a "${TEST_DATA_DIR}" "${TEMPLATE_REPO}/PROJECT"
 rm -rf "${TEMPLATE_REPO}/template/.github/workflows"/*
 
 sed_escape() {
