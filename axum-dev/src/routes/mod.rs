@@ -22,6 +22,7 @@ use crate::{
 
 pub mod admin;
 pub mod api;
+pub mod config;
 pub mod healthz;
 pub mod hello;
 pub mod login;

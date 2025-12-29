@@ -1,4 +1,5 @@
 use crate::{
+    config::AuthConfig,
     middleware::{
         oidc::{OidcConfig, build_oidc_auth_layer},
         trusted_forwarded_for::TrustedForwardedForConfig,
@@ -34,6 +35,7 @@ use tracing::warn;
 #[derive(Clone)]
 pub struct AppState {
     pub db: SqlitePool,
+    pub auth_config: AuthConfig,
 }
 
 #[derive(Clone, Debug)]
@@ -88,6 +90,7 @@ pub async fn run(
     session_expiry_secs: u64,
     session_check_secs: u64,
     tls_config: TlsConfig,
+    auth_config: AuthConfig,
 ) -> anyhow::Result<()> {
     log_startup(&db_url)?;
 
@@ -108,7 +111,7 @@ pub async fn run(
     debug_assert!(!oidc_cfg.enabled || oidc_auth_layer.is_some());
 
     // Shared state + router
-    let state = AppState { db };
+    let state = AppState { db, auth_config };
     let app = build_app(
         forward_auth_cfg,
         forward_for_cfg,

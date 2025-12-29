@@ -1,7 +1,8 @@
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Default, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AuthenticationMethod {
     #[default]

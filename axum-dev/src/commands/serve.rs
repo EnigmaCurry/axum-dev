@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    config::{AppConfig, TlsAcmeChallenge, TlsMode, database::build_db_url},
+    config::{AppConfig, AuthConfig, TlsAcmeChallenge, TlsMode, database::build_db_url},
     ensure_root_dir,
     errors::CliError,
     middleware::{self, auth::AuthenticationMethod, oidc::build_oidc_auth_layer},
@@ -29,6 +29,7 @@ pub struct ServePlan {
     pub session_secure: bool,
     pub session_expiry_secs: u64,
     pub session_check_secs: u64,
+    pub auth_config: AuthConfig,
 }
 
 fn plan_serve(cfg: &AppConfig, root_dir: &Path) -> Result<ServePlan, CliError> {
@@ -47,6 +48,7 @@ fn plan_serve(cfg: &AppConfig, root_dir: &Path) -> Result<ServePlan, CliError> {
         session_secure: true,
         session_expiry_secs: cfg.session.expiry_seconds,
         session_check_secs: cfg.session.check_seconds,
+        auth_config: cfg.auth.clone(),
     })
 }
 
@@ -74,6 +76,7 @@ pub fn serve(cfg: AppConfig, root_dir: PathBuf) -> Result<(), CliError> {
         plan.session_expiry_secs,
         plan.session_check_secs,
         plan.tls_config,
+        plan.auth_config,
     ))
     .map_err(|e| {
         error!("server::run failed: {:#}", e);
