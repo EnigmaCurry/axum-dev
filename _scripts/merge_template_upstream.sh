@@ -86,6 +86,7 @@ reverse_template_vars ${PROJECT_DIR}/DEVELOPMENT.md ${TEMPLATE_REPO}/template/DE
 reverse_template_vars ${PROJECT_DIR}/${DEV_APP_NAME}/Dockerfile ${TEMPLATE_REPO}/template/PROJECT/Dockerfile
 reverse_template_vars ${PROJECT_DIR}/${DEV_APP_NAME}/Dockerfile.binary ${TEMPLATE_REPO}/template/PROJECT/Dockerfile.binary
 reverse_template_vars ${PROJECT_DIR}/Cargo.toml ${TEMPLATE_REPO}/template/Cargo.toml
+reverse_template_vars ${PROJECT_DIR}/${DEV_APP_NAME}/Cargo.toml ${TEMPLATE_REPO}/template/PROJECT/Cargo.toml
 reverse_template_vars ${PROJECT_DIR}/.github/workflows/release.yml ${TEMPLATE_REPO}/template/.github/workflows/release.yml
 reverse_template_vars ${PROJECT_DIR}/.github/workflows/rust.yml ${TEMPLATE_REPO}/template/.github/workflows/rust.yml
 reverse_template_vars_without_git_username ${PROJECT_DIR}/Cargo.lock ${TEMPLATE_REPO}/template/Cargo.lock

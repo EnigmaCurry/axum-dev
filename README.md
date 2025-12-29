@@ -30,7 +30,7 @@ This is ALPHA software in-development.
  * Multiple user authentication backends:
    * Username / Password.
    * Forward Auth via trusted header (Traefik Proxy or compatible proxy layer).
-   * Todo: OAuth (OIDC).
+   * OAuth (OIDC).
  * Admin web interface.
  * [Just](https://github.com/casey/just) enabled project build
    targets.

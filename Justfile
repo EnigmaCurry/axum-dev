@@ -308,6 +308,7 @@ serve-docker-plain: _env_check build-docker
 # Apply database migrations in local database
 migrate: _env_check
     cd {{PROJECT_DIR}} && \
+    mkdir -p "$(dirname {{DATABASE_PATH}})" && \
     export DATABASE_URL="sqlite://{{DATABASE_PATH}}" && \
     sqlx database create && \
     sqlx migrate run
