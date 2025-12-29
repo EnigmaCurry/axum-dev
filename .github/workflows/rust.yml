@@ -12,6 +12,7 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   PROJECT_DIR: axum-dev
+  DATABASE_PATH: /home/runner/work/axum-dev.db
 
 jobs:
   build:

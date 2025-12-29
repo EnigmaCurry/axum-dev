@@ -27,8 +27,8 @@ NPM           := env_var_or_default("NPM", "pnpm")
 DOCKER        := env_var_or_default("DOCKER", "docker")
 DOCKER_IMAGE  := env_var_or_default("DOCKER_IMAGE", "rust-axum-template")
 DOCKER_VOLUME := env_var_or_default("DOCKER_VOLUME", "rust-axum-template")
-ROOT_DIR      := env_var_or_default("ROOT_DIR", HOME / ".local" / "share" / APP)
-DATABASE_PATH := ROOT_DIR / "data.db"
+DATA_DIR      := env_var_or_default("DATA_DIR", HOME / ".local" / "share" / APP)
+DATABASE_PATH := env_var_or_default("DATABASE_PATH", DATA_DIR / "data.db")
 
 # print help for Just targets
 help:
