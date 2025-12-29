@@ -9,11 +9,13 @@ use tower::ServiceBuilder;
 use tower_http::{services::ServeDir, trace::TraceLayer};
 use tracing::warn;
 
+use crate::middleware::require_role::RequireRoles;
+use crate::models::role::SystemRole;
 use crate::{
     AppState,
     api_docs::{configure_openapi, docs_routes},
     middleware::{
-        admin_only::admin_only_middleware, csrf_protection, oidc, trusted_forwarded_for,
+        csrf_protection, oidc, require_role::require_roles_middleware, trusted_forwarded_for,
         trusted_header_auth, user_session::user_session_middleware,
     },
 };
@@ -35,7 +37,7 @@ pub fn router(
 ) -> axum::Router<AppState> {
     // build your ApiRouter pieces as you already do...
     let public_api = ApiRouter::<AppState>::new()
-        .nest("/api", api::router())
+        .nest("/api", api::router(state.clone()))
         .layer(middleware::from_fn(csrf_protection::csrf_middleware));
 
     let login_api = login::router(forward_auth_cfg)
@@ -44,8 +46,8 @@ pub fn router(
     let admin_api = ApiRouter::<AppState>::new()
         .nest("/admin", admin::router())
         .layer(middleware::from_fn_with_state(
-            state.clone(),
-            admin_only_middleware,
+            (state.clone(), RequireRoles(&[SystemRole::Admin])),
+            require_roles_middleware,
         ))
         .layer(middleware::from_fn(csrf_protection::csrf_middleware));
 

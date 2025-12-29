@@ -1,6 +1,10 @@
 use crate::{
     errors::ErrorBody,
-    models::user::{self},
+    middleware::require_role::{RequireRoles, require_roles_middleware},
+    models::{
+        role::SystemRole,
+        user::{self},
+    },
     response::{ApiJson, ApiResponse, json_error, json_ok},
 };
 use aide::{NoApi, axum::ApiRouter};
@@ -9,6 +13,7 @@ use axum::{
     Json,
     extract::{Path, State},
     http::StatusCode,
+    middleware,
 };
 use axum_oidc::{EmptyAdditionalClaims, OidcClaims};
 use schemars::JsonSchema;
@@ -17,8 +22,13 @@ use serde::Serialize;
 use crate::models::user::PublicUser;
 use crate::prelude::*;
 
-pub fn router() -> ApiRouter<AppState> {
-    ApiRouter::<AppState>::new().api_route("/{user_id}", get_with_docs!(get_user))
+pub fn router(state: AppState) -> ApiRouter<AppState> {
+    ApiRouter::<AppState>::new()
+        .api_route("/{user_id}", get_with_docs!(get_user))
+        .layer(middleware::from_fn_with_state(
+            (state.clone(), RequireRoles(&[SystemRole::Admin])),
+            require_roles_middleware,
+        ))
 }
 
 /// The shape of the JSON we send back from User API.

@@ -24,7 +24,7 @@ VALUES (
 INSERT INTO user_role (user_id, role_id, assigned_by)
 SELECT u.id, r.id, NULL
 FROM [user] u
-JOIN identity_provider ip ON ip.id = u.identity_provider_id
+JOIN identity_provider idp ON idp.id = u.identity_provider_id
 JOIN [role] r ON r.name = 'admin'
 WHERE u.external_id = 'root'
-  AND ip.name = 'system';
+  AND idp.name = 'System';
