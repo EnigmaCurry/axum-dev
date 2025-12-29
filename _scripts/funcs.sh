@@ -295,7 +295,7 @@ fresh_template_branch() {
     # -----------------------------------------------------------------
     exe git checkout --orphan "${NEW_ORPHAN_BRANCH}"
     exe git rm -rf .
-    exe git clean -fdx
+    exe git clean -fdx >/dev/null
 
     # -----------------------------------------------------------------
     # Make sure the temporary remote is gone, then add it again
