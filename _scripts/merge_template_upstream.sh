@@ -53,7 +53,7 @@ rm -rf "${TEMPLATE_SRC_DIR}"
 cp -a "${PROJECT_SRC_DIR}" "${TEMPLATE_SRC_DIR}"
 rm -rf "${TEMPLATE_REPO}/_scripts"
 cp -a "${PROJECT_DIR}/_scripts" "${TEMPLATE_REPO}/_scripts"
-cp -a "${FRONTEND_SRC_DIR}" "${TEMPLATE_REPO}/frontend"
+cp -a "${FRONTEND_SRC_DIR}" "${TEMPLATE_REPO}/"
 rm -rf "${TEMPLATE_REPO}/template/.github/workflows"/*
 
 sed_escape() {
