@@ -3,11 +3,7 @@
   import { Button } from "$lib/components/ui/button/index.js";
   import * as Card from "$lib/components/ui/card/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
-  import {
-    FieldGroup,
-    Field,
-    FieldLabel,
-  } from "$lib/components/ui/field/index.js";
+  import { FieldGroup, Field, FieldLabel } from "$lib/components/ui/field/index.js";
 
   const {
     id,
@@ -16,27 +12,36 @@
     logoutAction = "/api/logout",
   } = $props();
 
-  // --- reactive state (Svelte 5 runes) ---
   let username = $state("");
   let password = $state("");
 
   let csrfToken = $state("");
   let isLoggedIn = $state(false);
+
+  // NEW: tracks the very first whoami load
+  let initializing = $state(true);
+
+  // existing: tracks button actions
   let loading = $state(false);
   let errorMsg = $state("");
 
   function applyWhoami(json) {
     const session = json?.data?.session;
     csrfToken = typeof session?.csrf_token === "string" ? session.csrf_token : "";
-    username = session.username;
+    username = typeof session?.username === "string" ? session.username : "";
     isLoggedIn = !!session?.is_logged_in;
   }
 
   async function fetchWhoami() {
-    const res = await fetch(whoami, { credentials: "include" });
-    const json = await res.json().catch(() => null);
-    applyWhoami(json);
-    return { res, json };
+    try {
+      const res = await fetch(whoami, { credentials: "include" });
+      const json = await res.json().catch(() => null);
+      applyWhoami(json);
+      return { res, json };
+    } finally {
+      // only matters for the first render, but harmless on later calls
+      initializing = false;
+    }
   }
 
   onMount(fetchWhoami);
@@ -70,11 +75,9 @@
       return;
     }
 
-    // try login
     let res = await postJson(loginAction, { username, password });
     let json = await res.json().catch(() => null);
 
-    // if csrf rotated/expired, refresh token once and retry
     if (
       res.status === 401 &&
       (json?.error?.code === "csrf_invalid" || json?.error?.code === "csrf_missing")
@@ -85,15 +88,11 @@
     }
 
     if (!res.ok || json?.error) {
-      errorMsg =
-        json?.error?.message ??
-        json?.error ??
-        `Login failed (HTTP ${res.status})`;
+      errorMsg = json?.error?.message ?? json?.error ?? `Login failed (HTTP ${res.status})`;
       loading = false;
       return;
     }
 
-    // refresh session state
     await fetchWhoami();
     password = "";
     loading = false;
@@ -112,7 +111,6 @@
     let res = await postJson(logoutAction, null);
     let json = await res.json().catch(() => null);
 
-    // retry once on csrf mismatch
     if (
       res.status === 401 &&
       (json?.error?.code === "csrf_invalid" || json?.error?.code === "csrf_missing")
@@ -123,10 +121,7 @@
     }
 
     if (!res.ok || json?.error) {
-      errorMsg =
-        json?.error?.message ??
-        json?.error ??
-        `Logout failed (HTTP ${res.status})`;
+      errorMsg = json?.error?.message ?? json?.error ?? `Logout failed (HTTP ${res.status})`;
       loading = false;
       return;
     }
@@ -138,10 +133,13 @@
 
 <Card.Root class="mx-auto w-full max-w-sm">
   <Card.Header>
-    {#if isLoggedIn}
+    {#if initializing}
+      <Card.Title class="text-2xl">Loading…</Card.Title>
+      <Card.Description>Checking your session…</Card.Description>
+    {:else if isLoggedIn}
       <Card.Title class="text-2xl">You’re signed in</Card.Title>
       <Card.Description>
-        Signed in as <span class="font-mono">{username ?? "(unknown)"}</span>
+        Signed in as <span class="font-mono">{username || "(unknown)"}</span>
       </Card.Description>
     {:else}
       <Card.Title class="text-2xl">Sign in</Card.Title>
@@ -154,7 +152,10 @@
       <p class="mb-3 text-sm text-red-600">{errorMsg}</p>
     {/if}
 
-    {#if isLoggedIn}
+    {#if initializing}
+      <!-- Optional: keep body empty to avoid any “login” flash -->
+      <div class="h-10"></div>
+    {:else if isLoggedIn}
       <Button class="w-full" onclick={submitLogout} disabled={loading}>
         {loading ? "Signing out…" : "Logout"}
       </Button>

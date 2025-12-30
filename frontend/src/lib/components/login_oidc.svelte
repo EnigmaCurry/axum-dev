@@ -6,16 +6,18 @@
   const {
     id,
     whoami = "/api/whoami",
-    // IMPORTANT: this must be a GET endpoint that returns a 3xx redirect to the IdP
     loginAction = "/api/login",
     logoutAction = "/api/logout",
-    // optional: caller can override the return path
     next = null,
   } = $props();
 
   let externalUserId = $state("");
   let csrfToken = $state("");
   let isLoggedIn = $state(false);
+
+  // NEW
+  let initializing = $state(true);
+
   let loading = $state(false);
   let errorMsg = $state("");
 
@@ -28,10 +30,14 @@
   }
 
   async function fetchWhoami() {
-    const res = await fetch(whoami, { credentials: "include" });
-    const json = await res.json().catch(() => null);
-    applyWhoami(json);
-    return { res, json };
+    try {
+      const res = await fetch(whoami, { credentials: "include" });
+      const json = await res.json().catch(() => null);
+      applyWhoami(json);
+      return { res, json };
+    } finally {
+      initializing = false;
+    }
   }
 
   onMount(fetchWhoami);
@@ -75,7 +81,6 @@
     let res = await postJson(logoutAction, null);
     let json = await res.json().catch(() => null);
 
-    // retry once on csrf mismatch
     if (
       res.status === 401 &&
       (json?.error?.code === "csrf_invalid" || json?.error?.code === "csrf_missing")
@@ -86,10 +91,7 @@
     }
 
     if (!res.ok || json?.error) {
-      errorMsg =
-        json?.error?.message ??
-        json?.error ??
-        `Logout failed (HTTP ${res.status})`;
+      errorMsg = json?.error?.message ?? json?.error ?? `Logout failed (HTTP ${res.status})`;
       loading = false;
       return;
     }
@@ -101,7 +103,10 @@
 
 <Card.Root class="mx-auto w-full max-w-sm">
   <Card.Header>
-    {#if isLoggedIn}
+    {#if initializing}
+      <Card.Title class="text-2xl">Loading…</Card.Title>
+      <Card.Description>Checking your session…</Card.Description>
+    {:else if isLoggedIn}
       <Card.Title class="text-2xl">You’re signed in</Card.Title>
       <Card.Description>
         Signed in as <span class="font-mono">{externalUserId || "(unknown)"}</span>
@@ -117,17 +122,16 @@
       <p class="mb-3 text-sm text-red-600">{errorMsg}</p>
     {/if}
 
-    {#if isLoggedIn}
+    {#if initializing}
+      <div class="h-10"></div>
+    {:else if isLoggedIn}
       <Button class="w-full" onclick={submitLogout} disabled={loading}>
         {loading ? "Signing out…" : "Logout"}
       </Button>
     {:else}
-      <!-- REAL navigation. No fetch. -->
       <form method="GET" action={loginAction}>
         <input type="hidden" name="next" value={computeNext()} />
-        <Button type="submit" class="w-full">
-          Sign in with OIDC
-        </Button>
+        <Button type="submit" class="w-full">Sign in with OIDC</Button>
       </form>
     {/if}
   </Card.Content>
