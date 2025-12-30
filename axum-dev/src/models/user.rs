@@ -81,7 +81,6 @@ impl From<User> for PublicUser {
     }
 }
 
-/// Example insert helper – adjust to your actual route needs.
 pub async fn insert_user(pool: &SqlitePool, new_user: CreateUser) -> sqlx::Result<User> {
     sqlx::query_as::<_, User>(
         r#"

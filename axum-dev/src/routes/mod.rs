@@ -26,7 +26,6 @@ pub mod config;
 pub mod healthz;
 pub mod hello;
 pub mod login;
-pub mod user;
 pub mod whoami;
 
 pub fn router(

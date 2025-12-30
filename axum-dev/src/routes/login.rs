@@ -85,7 +85,7 @@ fn oidc_router() -> ApiRouter<AppState> {
 
 #[api_doc(
     id = "login_forward_auth",
-    tag = "auth",
+    tag = "session",
     ok = "Json<ApiResponse<()>>",
     err = "Json<ApiResponse<()>>"
 )]
@@ -126,7 +126,7 @@ async fn forward_auth_login_handler(
 
 #[api_doc(
     id = "login_password",
-    tag = "auth",
+    tag = "session",
     ok = "Json<ApiResponse<()>>",
     err = "Json<ApiResponse<()>>"
 )]
@@ -208,7 +208,7 @@ fn map_login_error(err: AppError) -> ApiJson<()> {
 
 #[api_doc(
     id = "logout",
-    tag = "auth",
+    tag = "session",
     ok = "Json<ApiResponse<()>>",
     err = "Json<ApiResponse<()>>"
 )]

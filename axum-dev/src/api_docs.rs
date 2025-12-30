@@ -68,24 +68,24 @@ pub fn docs_routes() -> ApiRouter {
         // UI routes: NOT in OpenAPI, use plain `route` + `get`
         .route(
             "/",
-            get(Scalar::new("/docs/private/api.json")
+            get(Scalar::new("/docs/api.json")
                 .with_title("Aide Axum")
                 .axum_handler()),
         )
         .route(
             "/redoc",
-            get(Redoc::new("/docs/private/api.json")
+            get(Redoc::new("/docs/api.json")
                 .with_title("Aide Axum")
                 .axum_handler()),
         )
         .route(
             "/swagger",
-            get(Swagger::new("/docs/private/api.json")
+            get(Swagger::new("/docs/api.json")
                 .with_title("Aide Axum")
                 .axum_handler()),
         )
         // Spec route: this one *is* part of the OpenAPI schema
-        .api_route("/private/api.json", get(serve_docs));
+        .api_route("/api.json", get(serve_docs));
 
     aide::generate::infer_responses(false);
 

@@ -35,7 +35,7 @@ struct ConfigResponse {
 
 #[api_doc(
     id = "config",
-    tag = "config",
+    tag = "system",
     ok = "Json<ApiResponse<ConfigResponse>>",
     err = "Json<ErrorBody>"
 )]

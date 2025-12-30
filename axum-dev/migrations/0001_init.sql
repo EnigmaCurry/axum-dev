@@ -89,8 +89,7 @@ CREATE TABLE [role] (
 
 INSERT INTO [role] (name, description) VALUES
     ('user',         'Default registered user'),
-    ('admin',        'Administrator with elevated permissions'),
-    ('superadmin',   'Highest-level admin');
+    ('admin',        'Administrator');
 
 
 -- user_role
