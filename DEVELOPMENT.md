@@ -10,25 +10,20 @@ sudo dnf install git openssh rustup
 sudo dnf install @development-tools @development-libs
 ```
 
-## Install rust and cargo
+## Install rust, cargo, and just
 
 ```
-rustup-init ## just press enter when prompted for default selection
-. "$HOME/.cargo/env"
+rustup-init            ## just press enter when prompted for default selection
+
+source "$HOME/.cargo/env"
+cargo install just
 ```
 
-## Clone source repository
-
-```
-git clone git@github.com:enigmacurry/axum-dev.git \
-  ~/git/vendor/enigmacurry/axum-dev
-cd ~/git/vendor/enigmacurry/axum-dev
-```
+## Clone this source repository - Open your terminal to that directory
 
 ## Install development dependencies
 
 ```
-cargo install just
 just deps
 ```
 
@@ -53,30 +48,13 @@ alias axum-dev='just -f ~/git/vendor/enigmacurry/axum-dev/Justfile run'
 source <(axum-dev completions bash 2> /dev/null)
 ```
 
-Now you can run `axum-dev` from any directory, with
+In this example, `axum-dev` is the name of the project, and
+`~/git/vendor/enigmacurry/axum-dev` is the directory where this
+repository is cloned.
+
+With the alias setup, you can run `axum-dev` from any directory, with
 any arguments, and it will automatically rebuild from source, and then
 run it with those args. This will have full tab-completion in your shell.
-
-## Configure the .env file
-
-In development only, when using the `just` command, you will use the
-`.env` file. You need to generate it from the included `.env-dist`:
-
-```
-just config
-```
-
-This will copy the provided [.env-dist](template/.env-dist) to `.env`.
-You should edit the generated `.env` file by hand to configure your
-application.
-
-You can set an alternative `.env` file path by setting the `ENV_FILE`
-environment variable.
-
-It is important to know that the program itself does not know how to
-read `.env` files. It is `just` that is loading the .env file and
-setting regular environment variables, which the program can read.
-`just` and `.env` files are only used during development.
 
 ## Run the program
 
@@ -95,7 +73,7 @@ axum-dev [ARGS ..]
 This project has incomplete testing. [See the latest coverage
 report](https://enigmacurry.github.io/axum-dev/coverage/master/).
 
-## Run tests
+### Run tests
 
 ```
 # Run all tests:
@@ -111,7 +89,7 @@ just test-verbose test_cli_help
 just test-watch
 ```
 
-## Clippy
+## Clippy (linter)
 
 ```
 just clippy
@@ -154,12 +132,6 @@ It will ask you for the name of the new branch, which will be copied
 from the local `../rust-axum-template` repository.
 
 ## Release (Github actions)
-
-### Install cargo dependencies
-
-```
-just deps
-```
 
 ### Bump release version and push new branch
 

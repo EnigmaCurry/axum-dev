@@ -1,10 +1,6 @@
 set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 set export
 
-set dotenv-filename := x'${ENV_FILE:-.env}'
-set dotenv-load := true
-set dotenv-required := false
-
 FUNCS_SCRIPT := "./_scripts/funcs.sh"
 ROOT := justfile_directory()
 RUST_LOG        := env_var_or_default("RUST_LOG", "warn")
@@ -63,22 +59,6 @@ _env_init:
     echo "Created $env_path from $dist_path"
     echo "Now re-run your command (dotenv loads on just startup)."
 
-[private]
-_env_check:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    env_file="{{ENV_FILE}}"
-    if [[ "$env_file" != /* ]]; then
-      env_path="{{ROOT}}/$env_file"
-    else
-      env_path="$env_file"
-    fi
-    if [[ ! -f "$env_path" ]]; then
-      echo "ERROR: $env_path is missing."
-      echo "Run: just config ENV_FILE=$env_file"
-      exit 1
-    fi
-
 # Usage: just _with-temp-db <command>...
 [private]
 _with-temp-db +cmd:
@@ -113,10 +93,6 @@ _with-temp-db-script script:
 
     bash -c '{{script}}'
 
-# Create .env file from .env-dist (can specify ENV_FILE to override path)
-config: _env_init
-    @echo "Config check complete for {{ENV_FILE}}."
-
 # Install dependencies
 deps:
     @echo
@@ -141,44 +117,44 @@ bin-deps:
 
 # Build and run binary + args
 [no-cd]
-run *args: _env_check
+run *args:
     cargo run --manifest-path "{{MANIFEST}}" -- {{args}}
 
 # Build + args
-build *args: _env_check build-frontend
+build *args: build-frontend
     just _with-temp-db cargo build --manifest-path "{{MANIFEST}}" {{args}}
 
 # Build continuously on file change
-build-watch *args: _env_check
+build-watch *args:
     cd "{{APP}}" && cargo watch -s "clear && just _with-temp-db cargo build --manifest-path {{MANIFEST}} {{args}}"
 
 # Run tests
-test *args: _env_check build-frontend
+test *args: build-frontend
     just _with-temp-db cargo nextest run --manifest-path "{{MANIFEST}}" {{args}}
 
 # Run tests with verbose logging
-test-verbose *args: _env_check build-frontend
+test-verbose *args: build-frontend
     just _with-temp-db env RUST_TEST_THREADS=1 \
         cargo nextest run --manifest-path "{{MANIFEST}}" --nocapture {{args}}
 
 # Run tests continuously on file change
-test-watch *args: _env_check
+test-watch *args:
     just _with-temp-db-script \
         'cargo watch -C {{PROJECT_DIR}} -s "clear && cargo nextest run --manifest-path \"{{MANIFEST}}\" {{args}}"'
 
 # Run tests continuously with verbose logging
-test-watch-verbose *args: _env_check
+test-watch-verbose *args:
     just _with-temp-db-script \
         'RUST_TEST_THREADS=1 cargo watch -C {{PROJECT_DIR}} -s "clear && cargo nextest run --manifest-path \"{{MANIFEST}}\" --nocapture -- {{args}}"'
 
 # Build coverage report
-test-coverage *args: clean _env_check build-frontend
+test-coverage *args: clean build-frontend
     just _with-temp-db-script \
         'cargo llvm-cov nextest --manifest-path "{{MANIFEST}}" {{args}} && \
          cargo llvm-cov --manifest-path "{{MANIFEST}}" {{args}} report --html'
 
 # Continuously build coverage report and serve HTTP report
-test-coverage-watch *args: _env_check
+test-coverage-watch *args:
     just _with-temp-db-script \
         'clear && \
          just test-coverage {{args}} && \
@@ -186,11 +162,11 @@ test-coverage-watch *args: _env_check
          python -m http.server'
 
 # Run Clippy to report and fix lints
-clippy *args: _env_check
+clippy *args:
     RUSTFLAGS="-D warnings" cargo clippy --manifest-path "{{MANIFEST}}" {{args}} --color=always 2>&1 --tests | less -R
 
 # Bump release version and create PR branch
-bump-version: _env_check
+bump-version:
     @if [ -n "$(git status --porcelain)" ]; then echo "## Git status is not clean. Commit your changes before bumping version."; exit 1; fi
     @if [ "$(git symbolic-ref --short HEAD)" != "master" ]; then echo "## You may only bump the version from the master branch."; exit 1; fi
     source ${FUNCS_SCRIPT}; \
@@ -217,7 +193,7 @@ bump-version: _env_check
     echo "You should push this branch and create a PR for it."
 
 # Tag and release a new version from master branch
-release: _env_check
+release:
     @if [ -n "$(git status --porcelain)" ]; then echo "## Git status is not clean. Commit your changes before bumping version."; exit 1; fi
     @if [ "$(git symbolic-ref --short HEAD)" != "master" ]; then echo "## You may only release the master branch."; exit 1; fi
     git remote update;
@@ -241,24 +217,24 @@ clean-profile:
     rm -rf {{PROJECT_DIR}}/*.profraw {{PROJECT_DIR}}/*.profdata
 
 # Build svelte frontend
-build-frontend: _env_check
+build-frontend:
     cd frontend && \
     {{NPM}} install && \
     {{NPM}} build
 
 # Build docker image
-build-docker: _env_check
+build-docker:
     ${DOCKER} build -f {{APP}}/Dockerfile -t ${DOCKER_IMAGE} --build-arg CARGO_PROFILE="{{CARGO_PROFILE}}" .
     @echo "Tagged updated image ${DOCKER_IMAGE}"
 
 # Serve the app by itself as a standalone binary
-serve *args: _env_check
+serve *args:
     cd {{PROJECT_DIR}} && \
     AUTH_TRUSTED_FORWARDED_FOR=false \
     just run serve {{args}}
 
 # Serve the app in Docker with Traefik and ForwardAuth
-serve-docker: _env_check build-docker
+serve-docker: build-docker
     ${DOCKER} run --rm -it \
     --name {{APP}} \
     -v ${DOCKER_VOLUME}:/data \
@@ -288,7 +264,7 @@ serve-docker: _env_check build-docker
     ${DOCKER_IMAGE} serve
 
 # Serve the app in Docker without Traefik
-serve-docker-plain: _env_check build-docker
+serve-docker-plain: build-docker
     ${DOCKER} run --rm -it \
     --name {{APP}} \
     -v ${DOCKER_VOLUME}:/data \
@@ -306,7 +282,7 @@ serve-docker-plain: _env_check build-docker
     ${DOCKER_IMAGE} serve
 
 # Apply database migrations in local database
-migrate: _env_check
+migrate:
     cd {{PROJECT_DIR}} && \
     mkdir -p "$(dirname {{DATABASE_PATH}})" && \
     export DATABASE_URL="sqlite://{{DATABASE_PATH}}" && \
